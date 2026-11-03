@@ -15,6 +15,7 @@ target is MPSC (Maharashtra), with English and Marathi.
 | [`docs/data-model.md`](docs/data-model.md) | Tables, RLS rules, integrity rules |
 | [`docs/backlog.md`](docs/backlog.md) | Prioritised milestones and tasks |
 | [`docs/decisions/`](docs/decisions/) | Architecture decision records |
+| [`docs/reviews/`](docs/reviews/) | Independent QA/security reviews |
 
 ## Planned stack
 Next.js + TypeScript (strict), Supabase (Postgres, Auth, RLS, pgvector), pnpm workspaces,

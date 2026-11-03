@@ -48,3 +48,15 @@ progress toward one real exam.
 | D8 | Tutor transcript retention | 30 days, then reduced to structured learning facts |
 | D9 | Licence for ExamSaathi code | Proprietary (all rights reserved) until decided |
 | D10 | Paid Supabase tier for PITR backups before the beta | Yes, before real users |
+
+### Raised by security review 0001 (founder and/or counsel)
+| # | Question | Proposed default |
+|---|---|---|
+| R1 | Is self-declared 18+ adequate under the DPDP Act 2023? What happens if a minor is discovered? Must consent and audit rows be kept as evidence? | Counsel review before the beta; suspend and delete a minor's account on discovery |
+| R2 | AI provider data terms: cross-border transfer, provider retention, no training on student data | Choose a provider with zero-retention / no-training terms; disclose in the privacy notice |
+| R3 | Retention periods (DM §8a), including how long deleted data survives in backups | As proposed in DM §8a, pending counsel |
+| R4 | Size of the held-out assessment pool versus the practice pool | ~35 diagnostic + 100 mock items held out; the rest is practice |
+| R5 | Invite-only closed beta via an email allowlist | Yes |
+| R6 | Rescoring policy when an answer key changes | Rescore affected attempts through an audited job and notify affected students in-app |
+| R7 | Incident-response owner and breach-notification process | Founder owns it; runbook drafted in M5 for counsel review |
+| R8 | Quota model: per-turn only, or also per-token | Per-turn plus per-turn token caps (already in arch §4.5) |

@@ -42,7 +42,7 @@ in Marathi falls back to English, with a visible label.
 
 | # | Capability | Milestone |
 |---|---|---|
-| F1 | Email + password and email magic-link sign-up/sign-in, password reset, sign-out | M1 |
+| F1 | Invite-only sign-up (email allowlist + CAPTCHA) with email + password; magic-link sign-in; password reset; sign-out | M1 |
 | F2 | Consent capture: privacy notice, terms, age confirmation (18+), versioned | M1 |
 | F3 | Onboarding: exam → stage/paper, preferred language, target exam date, weekly study availability (hours per weekday), rest day(s) | M1 |
 | F4 | Student dashboard (empty/first-run state → next action) | M1 |
@@ -79,9 +79,10 @@ These follow `CLAUDE.md` §4, plus decisions made here:
 
 ## 4. Canonical MVP user journey and acceptance criteria
 
-1. **Sign up.** The student enters an email and password, confirms they are 18+, and accepts
+1. **Sign up.** An invited student enters an email and password, confirms they are 18+, and accepts
    the privacy notice and terms (versions recorded).
-   *AC:* no account is created without all three; consent rows store version + timestamp.
+   *AC:* no account is created without all three (sign-up runs in a server action; magic link can't create accounts);
+   consent rows store version + timestamp; the app is blocked until current consent versions are granted.
 2. **Onboard (≤ 6 screens, ≤ 3 minutes).** Exam → paper → language → target date →
    weekly hours → rest days. Every question shows a one-line "why we ask".
    *AC:* no education/eligibility data is requested in the MVP. Eligibility gets a static
@@ -155,3 +156,5 @@ See `docs/decisions/0001-mvp-scope.md` §"Open decisions". Summary:
 5. Content sourcing: who writes and reviews questions/explainers, and under what licence.
 6. Hosting/data region: Supabase project region (proposed: Mumbai `ap-south-1`).
 7. License for the new ExamSaathi code (the legacy InfiniteTalk code stays Apache-2.0).
+8. Items raised by security review 0001 (R1–R8 in ADR 0001): DPDP age-gate adequacy, AI provider data terms,
+   retention, held-out assessment pool, invite-only beta, rescoring policy, breach response, quota model.

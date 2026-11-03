@@ -62,9 +62,13 @@ DB tests on a local Supabase, then build.
 ### 4.1 Diagnostic → baseline
 1. Server builds a diagnostic form: about 35 items from `questions` where `review_status = 'approved'`,
    stratified by topic weight and spread across difficulty 1–5 (`domain/diagnostic.selectItems`, seeded for reproducibility).
-2. Each answer is stored as `attempt_responses` (choice, correctness, ms, confidence) and emits a `learning_event`.
-3. On submit, `domain/mastery.estimate` updates each topic's posterior (see 4.3) and writes `topic_mastery`.
-4. The UI shows each topic as a band (weak / developing / strong / **not enough evidence**), never a precise %.
+2. Each answer is stored as an `attempt_responses` row (choice, server-clamped ms, confidence) through a narrow RPC.
+   For diagnostics and mocks, `is_correct` is **not** computed until submit. For practice it is computed per item when the item is answered, and the item is then locked.
+3. Timing is enforced by the server: responses after `started_at + duration + 60 s grace` are rejected and the attempt auto-submits.
+   `response_ms` from the client is untrusted, so it is clamped to the server-observed window.
+4. On submit, the server grades the attempt, emits `learning_events`, and `domain/mastery.estimate` updates each topic's
+   posterior (see 4.3) and writes `topic_mastery`. **Mastery changes only from server-graded responses.**
+5. The UI shows each topic as a band (weak / developing / strong / **not enough evidence**), never a precise %.
 
 ### 4.2 Study plan (deterministic)
 `domain/planner.generatePlan(input) → PlanDraft` is a pure function:
@@ -118,8 +122,28 @@ is always the authenticated user. Retrieved content is passed to the model as de
 instruction that it is reference material, not instructions (prompt-injection mitigation). The
 approved corpus is admin-curated, which reduces but does not remove that risk.
 
-Transcripts: tutor messages are stored for 30 days (for support and quality review, with student
-access and deletion) and then reduced to structured learning facts. *Founder to confirm retention.*
+**Tutor hard rules (from security review 0001):**
+- **Timed-attempt lock.** While the user has an `in_progress` attempt of kind `mock` or `diagnostic`, the tutor
+  endpoint refuses turns ("Finish or pause your test first"), and practice-set creation excludes that attempt's items.
+  This is enforced in the route handler and again inside each tool handler.
+- **Held-out pools.** Questions tagged `pool = 'assessment'` are never returned by `get_question_and_answer`,
+  `create_practice_set` or retrieval. *(The size of the held-out pool is a founder decision: R4.)*
+- **No model-authored evidence.** `record_learning_event` accepts only non-evidentiary kinds
+  (`tutor_explained`, `tutor_hint_given`) with zero mastery weight. In "quiz me" mode the student's answer is
+  graded by the same server grading path as practice, never by the model's verdict.
+- **Bounds per turn.** Student message ≤ 2,000 characters; ≤ 3 tool iterations per turn; ≤ 6k input tokens and the tier's
+  output cap; one in-flight turn per user (row lock on `ai_quotas`); `create_practice_set` ≤ 20 items, limited to the
+  student's own syllabus version.
+- **Citations from the server only.** Citations are rendered from tool-result metadata held by the server. Any
+  `source_id` the model mentions that was not returned by a tool in this turn is dropped. Factual exam claims without
+  a citation get the "cannot verify" label, applied before the segment is shown (factual segments are buffered rather than streamed raw).
+- **Safe rendering.** All markdown (content and LLM output) is rendered with raw HTML disabled and run through a sanitiser.
+  Images are not rendered from LLM output, and external links are shown only if they match a URL in the source register.
+- The tutor UI tells students not to share personal details, because messages are processed by a third-party AI provider.
+
+Transcripts: tutor messages are kept for 30 days (for support and quality review, with student
+access and deletion) and then **deleted**. Structured learning facts come from `learning_events`, not
+from transcripts, so no extra LLM pass is needed. *Founder to confirm the 30-day period (D8).*
 
 ### 4.6 Model routing and cost controls
 | Tier | Use | Default limits |
@@ -129,36 +153,59 @@ access and deletion) and then reduced to structured learning facts. *Founder to 
 | `strong` | Reserved: answer evaluation, admin content drafting | admin/offline only in MVP |
 
 - Per-user default quota: 40 tutor turns/day and 15 turns/session, enforced server-side before the provider call.
-- Global budget: `AI_MONTHLY_BUDGET_INR`. At 80 % an admin alert fires; at 100 % tutor turns are refused with a friendly message, while practice and plan keep working.
+- Global budget: `AI_MONTHLY_BUDGET_INR`. Before each provider call the worst-case cost of the turn is
+  **reserved**, and it is settled with actual tokens afterwards. At 80 % an admin alert fires; at 95 % tutor turns are
+  refused with a friendly message (headroom for in-flight turns), while practice and plan keep working.
 - Cache: approved-topic explanations that contain no personal data may be cached by (topic_id, language, content_version).
 - The provider is chosen by an env var behind `LLMProvider`; the specific vendor is a founder decision.
 
 ### 4.7 Retrieval
-- `content_chunks` hold the text of approved `content_items` and question explanations, with a
+- `content_chunks` hold the text of approved `content_items` (and, for admin/offline use only, question explanations), with a
   `tsvector` (English + `simple` config for Marathi) and a `vector` embedding (pgvector).
 - Hybrid search: full-text rank + vector similarity, always filtered to `status = 'approved'`, the student's
   exam/syllabus version and language (with English fallback). Each chunk carries `source_id` for citation.
+- **The student-facing retrieval function never returns `owner_type = 'question_answer'` chunks.** Answer
+  explanations reach students only through `reveal_answer` (§6). A pgTAP test and an eval case assert this.
 - Re-embedding is triggered when content is approved or changed; old chunks are deactivated, not mutated.
 
 ## 5. Authentication and roles
-- Supabase Auth (email + password, magic link). Sessions use httpOnly cookies via `@supabase/ssr`.
-- Roles live in the `user_roles` table (`student`, `content_reviewer`, `admin`), not in client-editable metadata.
+- Supabase Auth (email + password, magic link) with the **PKCE** flow. Sessions use httpOnly cookies via `@supabase/ssr`.
+- **Sign-up only through a server action** that checks the beta invite allowlist and CAPTCHA, creates the user, and
+  writes the three consent rows. Magic link is sign-in only (`shouldCreateUser: false`).
+- **Consent middleware:** every app route except auth and legal pages redirects to a consent screen unless the user
+  has granted rows for the *current* privacy, terms and 18+ versions. This also handles re-consent when a version changes.
+- Supabase Auth rate limits are configured; email confirmation is required; sign-up, sign-in and reset responses
+  are generic (no account enumeration); a custom SMTP sender has SPF/DKIM. Redirect URLs are allow-listed, and any
+  `next` parameter must be a relative path.
+- Roles live in the `user_roles` table (`student`, `content_reviewer`, `admin`), never in `user_metadata`.
   A Postgres function `has_role(role)` (SECURITY DEFINER, fixed `search_path`) backs the RLS policies.
-- Admin routes check the role server-side in the layout **and** in each server action. RLS is the backstop.
-- Admin MFA (TOTP) is required before admin role grants take effect.
+  For `admin` and `content_reviewer` it **also requires `auth.jwt()->>'aal' = 'aal2'`** (MFA), so a session
+  with a stolen password alone is denied.
+- Admin routes check role and AAL server-side in the layout **and** in each server action. RLS is the backstop.
+- The first admin is bootstrapped by a one-off, audited SQL script run by the founder. It is not exposed through the UI.
 
 ## 6. Security model
 - **RLS on every table in `public`.** Student-owned tables use `student_id = auth.uid()`. Content tables
   allow `select` to authenticated users only where `status = 'approved'`; write access needs `has_role('admin')`
   or `has_role('content_reviewer')` with specific transitions.
 - **Cross-user denial tests** in pgTAP for every student-owned table (student A can't select, insert, update or delete B's rows).
-- Answer keys: `question_answers` (correct option + explanation) are only readable after the student has
-  submitted that item in an attempt, or in practice mode. This is enforced by an RLS policy plus a server function
-  that returns the key only on submission. The diagnostic/mock client never receives correct answers before submit.
+- **Privileged writes** follow [ADR 0003](decisions/0003-privileged-db-functions.md): student tables marked
+  `own-ro` get no direct `insert/update/delete` grants for `authenticated`. Writes go through narrow RPCs that
+  derive the user from `auth.uid()`; internals live in a non-exposed `private` schema with `EXECUTE` revoked.
+  Tables that allow limited student edits use column-level `UPDATE` grants.
+- **Answer keys:** `question_answers` has **no** select policy for students. The only path is
+  `reveal_answer(attempt_item_id)`, which checks that the attempt belongs to `auth.uid()` and requires
+  either a `submitted` mock/diagnostic attempt or an answered (and now locked) practice item.
+  `questions` is not directly readable either: items reach students only through an RPC that returns their own
+  attempt items, so the bank can't be downloaded. `questions.options` has a check constraint allowing only `{id, text}`.
+  An E2E test inspects network payloads for answer fields across mock, practice and tutor.
 - Input validation: zod at every server action and route handler; Postgres constraints as a second layer.
 - Rate limits: per-user and per-IP on auth, tutor and submit endpoints (Postgres-backed token bucket in the MVP,
   so no extra service is needed).
-- Headers: strict CSP (no inline scripts except Next nonce), HSTS, `frame-ancestors 'none'`, Referrer-Policy.
+- Headers: strict CSP (no inline scripts except Next nonce; `img-src 'self'` plus Supabase storage; tight `connect-src`),
+  HSTS, `frame-ancestors 'none'`, Referrer-Policy.
+- Cron: `CRON_SECRET` is sent in a header and compared in constant time.
+- The service-role client module is marked `import 'server-only'`; a CI step fails if the key name appears in client bundles.
 - CSRF: server actions use Next's origin checks; route handlers check `Origin`. Cookies are `SameSite=Lax`.
 - SSRF: the server makes no user-supplied URL fetches in the MVP. Source URLs are stored as text and rendered as links only.
 - Secrets live in host env vars only; `.env.example` documents names. The service-role key is never in a `NEXT_PUBLIC_*` var.
@@ -183,7 +230,8 @@ Planned env vars (`.env.example` will be added with the app scaffold in M1):
 `CRON_SECRET`, `APP_BASE_URL`, `EMAIL_FROM`.
 
 ## 8. Telemetry
-- Product events go to the `analytics_events` table (server-emitted, pseudonymous `student_id`, no free text).
+- Product events go to the `analytics_events` table (server-emitted; `user_ref` = HMAC of the user id with a
+  server secret, treated as personal data anyway; no free text).
   Taxonomy: `onboarding_step_completed`, `diagnostic_started|completed`, `plan_generated|accepted|declined`,
   `task_completed|missed`, `practice_item_answered`, `mock_started|completed`, `tutor_turn`,
   `replan_proposed|accepted|declined`, `content_error_reported`.
@@ -193,8 +241,10 @@ Planned env vars (`.env.example` will be added with the app scaffold in M1):
 ## 9. Threat model summary (top risks)
 | Threat | Mitigation |
 |---|---|
-| Cross-user data access via missing RLS | RLS default-deny, pgTAP tests per table, CI gate |
-| Answer-key leakage before submit | Separate table plus a submit-gated function; E2E test inspects network payloads |
+| Cross-user data access via missing RLS | RLS default-deny, pgTAP tests per table **and per exposed function**, CI gate |
+| Direct PostgREST writes forging scores, mastery or quota | ADR 0003: no direct writes on `own-ro` tables, column grants, `private` schema |
+| Answer-key leakage before submit | No student select on keys or the bank, submit-gated `reveal_answer`, tutor lock during timed attempts, retrieval excludes answer chunks, held-out pool; E2E payload test |
+| Account farming / email bombing | Invite allowlist, CAPTCHA, Supabase Auth rate limits, generic responses |
 | Prompt injection through content or student input | Tools are scoped to the auth user, delimited retrieval, no write tools beyond events/proposals |
 | AI cost abuse | Server quotas, rate limits, global kill-switch, metering before and after the call |
 | Admin account takeover | MFA for admins, audit log, minimal admin count |
