@@ -28,8 +28,8 @@ describe('new-user provisioning', () => {
   it('creates profile, student role and notification preferences, ignoring metadata', async () => {
     await actAsSuperuser(db());
     const { rows } = await db().query<{ id: string }>(
-      `insert into auth.users (email, raw_user_meta_data)
-       values ('meta@example.test', '{"role":"admin"}') returning id`,
+      `insert into auth.users (id, email, raw_user_meta_data)
+       values (gen_random_uuid(), 'meta@example.test', '{"role":"admin"}') returning id`,
     );
     const id = rows[0]!.id;
     const roles = await db().query('select role from public.user_roles where user_id = $1', [id]);

@@ -27,7 +27,8 @@ automated tests from the first migration onwards.
 ## Consequences
 - Fast (under 1 s) and runs anywhere Postgres runs.
 - **Risk:** the shim may drift from real Supabase (GoTrue, PostgREST and the platform's own grants aren't exercised).
-  **Mitigation:** before the beta (M5-3), run the same suite against `supabase start` in CI and smoke-test RLS via PostgREST
-  on the staging project. Revisit this ADR if they disagree.
+  **Mitigation (brought forward to M1-13):** CI job `supabase-stack` runs the same suite against a real
+  `supabase start` stack (`DB_TEST_TARGET=supabase`, no shim), plus `supabase/tests-stack/` smoke tests through
+  GoTrue and PostgREST. Revisit this ADR if the two runs disagree.
 - The schema-guard tests deliberately fail when a new table or function needs an exception. Exceptions must be
   allow-listed in the test with a comment, which makes them visible in review.

@@ -27,7 +27,7 @@ describe('scripts/bootstrap-admin.sql', () => {
   it('grants admin to an existing user and audits it', async () => {
     const email = `Founder-${randomUUID()}@example.test`;
     const { rows } = await client.query<{ id: string }>(
-      'insert into auth.users (email) values ($1) returning id',
+      'insert into auth.users (id, email) values (gen_random_uuid(), $1) returning id',
       [email.toLowerCase()],
     );
     const id = rows[0]!.id;

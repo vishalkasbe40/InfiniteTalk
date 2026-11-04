@@ -1,0 +1,2 @@
+-- Local development seed. Clearly fictional data only (CLAUDE.md §10). Applied by `supabase db reset`.
+-- Intentionally empty until the M1-11 taxonomy skeleton.

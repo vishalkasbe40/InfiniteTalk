@@ -50,3 +50,36 @@ jobs:
             echo "Service-role key reference found in client bundle" >&2
             exit 1
           fi
+
+  # ADR 0004 mitigation / backlog M1-13: the same DB suite on a REAL local Supabase stack
+  # (no shim), plus an auth + data-API smoke test. Keys are the stack's throwaway local keys.
+  supabase-stack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - name: Start local Supabase (auth, data API, database only)
+        run: supabase start -x studio,imgproxy,realtime,storage-api,edge-runtime,logflare,vector,supavisor,postgres-meta
+      - name: Export local stack URL and keys
+        run: supabase status -o env | sed -E 's/^([A-Z_]+)="(.*)"$/\1=\2/' >> "$GITHUB_ENV"
+      - name: DB policy tests on the real stack
+        run: pnpm test:db
+        env:
+          DB_TEST_TARGET: supabase
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - name: Auth + API smoke test
+        run: pnpm --filter @examsaathi/supabase test:stack
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup

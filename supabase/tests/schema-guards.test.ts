@@ -87,6 +87,10 @@ describe('schema guards', () => {
     const { rows } = await db().query(`
       select n.nspname, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname not in ('public', 'private', 'auth', 'pg_catalog', 'information_schema')
+        -- Schemas managed by the Supabase platform (present only on a real stack).
+        and n.nspname not in ('extensions', 'graphql', 'graphql_public', 'storage', 'realtime',
+          '_realtime', 'vault', 'pgbouncer', 'net', 'supabase_functions', 'supabase_migrations',
+          'cron', 'pgsodium', 'pgsodium_masks', '_analytics')
         and n.nspname not like 'pg_toast%' and n.nspname not like 'pg_temp%'
         and has_function_privilege('authenticated', p.oid, 'EXECUTE')`);
     expect(rows).toEqual([]);

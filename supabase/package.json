@@ -4,9 +4,11 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test:db": "vitest run"
+    "test:db": "vitest run",
+    "test:stack": "vitest run --config vitest.stack.config.ts"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "2.118.0",
     "@types/node": "26.6.5",
     "@types/pg": "8.23.1",
     "pg": "8.23.1",

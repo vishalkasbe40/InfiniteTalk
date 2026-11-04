@@ -27,7 +27,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M1-10 | Student dashboard first-run state → "Start diagnostic" | FE | S | M1-9 | Loading/empty/error states |
 | M1-11 | Fictional seed: GS-I taxonomy skeleton marked `[FICTIONAL SEED]` | Content | S | M1-6 | No real personal data |
 | M1-12 | Analytics event writer + onboarding events | Backend | S | M1-3 | Allow-listed props only |
-| M1-13 | CI job running the DB suite on a real `supabase start` stack (no shim) + one GoTrue sign-up and PostgREST RLS smoke test (ADR 0004 mitigation, brought forward by review 0002) | DevOps | M | M1-3 | Must pass before M1-4 is deployed to staging |
+| M1-13 | CI job running the DB suite on a real `supabase start` stack (no shim) + one GoTrue sign-up and PostgREST RLS smoke test (ADR 0004 mitigation, brought forward by review 0002) | DevOps | M | M1-3 | Must pass before M1-4 is deployed to staging | **Written; first run on PR #1** |
 | M1-14 | Service-role client module with `import 'server-only'` | Backend | S | M1-4 | Part of M1-4 |
 
 ## Milestone 2 — Diagnostic and plan (≈ 3 weeks)

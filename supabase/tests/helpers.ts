@@ -29,7 +29,7 @@ export function useDb(): { db: () => pg.Client } {
 export async function createUser(db: pg.Client, email = `${randomUUID()}@example.test`) {
   await db.query('reset role');
   const { rows } = await db.query<{ id: string }>(
-    'insert into auth.users (email) values ($1) returning id',
+    'insert into auth.users (id, email) values (gen_random_uuid(), $1) returning id',
     [email],
   );
   return rows[0]!.id;

@@ -15,6 +15,13 @@ function withDb(url: string, db: string): string {
 }
 
 export default async function setup(project: TestProject) {
+  // DB_TEST_TARGET=supabase: run against a real local Supabase stack (`supabase start` has
+  // already applied the migrations). No shim, no throwaway database (ADR 0004 mitigation).
+  if (process.env.DB_TEST_TARGET === 'supabase') {
+    project.provide('dbUrl', adminUrl);
+    return async () => undefined;
+  }
+
   const admin = new pg.Client({ connectionString: adminUrl });
   await admin.connect();
   await admin.query(`create database ${dbName}`);
