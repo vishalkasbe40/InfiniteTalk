@@ -57,6 +57,24 @@ export async function actAsAnon(db: pg.Client) {
   await db.query('set local role anon');
 }
 
+/** Act as the Supabase service role (server-only jobs). It bypasses RLS but not grants. */
+export async function actAsService(db: pg.Client) {
+  await db.query('reset role');
+  await db.query("select set_config('request.jwt.claims', $1, true)", [
+    JSON.stringify({ role: 'service_role' }),
+  ]);
+  await db.query('set local role service_role');
+}
+
+/** Publish a (fictional) consent document version, as the founder would. */
+export async function publishConsentDocument(db: pg.Client, kind: string, version: string) {
+  await db.query('reset role');
+  await db.query('insert into public.consent_documents (kind, version) values ($1, $2)', [
+    kind,
+    version,
+  ]);
+}
+
 export async function actAsSuperuser(db: pg.Client) {
   await db.query('reset role');
   await db.query("select set_config('request.jwt.claims', '', true)");

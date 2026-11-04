@@ -20,31 +20,39 @@ export default async function setup(project: TestProject) {
   await admin.query(`create database ${dbName}`);
   await admin.end();
 
-  const url = withDb(adminUrl, dbName);
-  const client = new pg.Client({ connectionString: url });
-  await client.connect();
-  const root = join(import.meta.dirname, '..');
-  await client.query(await readFile(join(root, 'tests/shim/supabase-shim.sql'), 'utf8'));
-  const migrations = (await readdir(join(root, 'migrations')))
-    .filter((f) => f.endsWith('.sql'))
-    .sort();
-  for (const file of migrations) {
-    try {
-      await client.query(await readFile(join(root, 'migrations', file), 'utf8'));
-    } catch (err) {
-      throw new Error(`migration ${file} failed: ${(err as Error).message}`);
-    }
-  }
-  await client.end();
-
-  project.provide('dbUrl', url);
-
-  return async () => {
+  const drop = async () => {
     const a = new pg.Client({ connectionString: adminUrl });
     await a.connect();
     await a.query(`drop database if exists ${dbName} with (force)`);
     await a.end();
   };
+
+  const url = withDb(adminUrl, dbName);
+  const client = new pg.Client({ connectionString: url });
+  try {
+    await client.connect();
+    const root = join(import.meta.dirname, '..');
+    await client.query(await readFile(join(root, 'tests/shim/supabase-shim.sql'), 'utf8'));
+    const migrations = (await readdir(join(root, 'migrations')))
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    for (const file of migrations) {
+      try {
+        await client.query(await readFile(join(root, 'migrations', file), 'utf8'));
+      } catch (err) {
+        throw new Error(`migration ${file} failed: ${(err as Error).message}`);
+      }
+    }
+  } catch (err) {
+    // Never leave half-built test databases behind on the server.
+    await client.end().catch(() => undefined);
+    await drop();
+    throw err;
+  }
+  await client.end();
+
+  project.provide('dbUrl', url);
+  return drop;
 }
 
 declare module 'vitest' {

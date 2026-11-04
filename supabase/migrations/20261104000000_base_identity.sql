@@ -13,7 +13,7 @@
 --   drop trigger if exists on_auth_user_created on auth.users;
 --   drop function if exists public.api_record_consent(public.consent_kind, text, boolean);
 --   drop table if exists public.audit_log, public.notification_preferences, public.consents,
---     public.user_roles, public.profiles;
+--     public.consent_documents, public.user_roles, public.profiles;
 --   drop type if exists public.consent_kind, public.app_role;
 --   drop schema if exists private cascade;
 
@@ -24,6 +24,8 @@ create schema if not exists private;
 revoke all on schema private from public;
 -- authenticated needs USAGE so that RLS policies can call private.has_role().
 grant usage on schema private to authenticated, service_role;
+-- Postgres grants EXECUTE to PUBLIC on new functions; stop that for everything created here later.
+alter default privileges in schema private revoke execute on functions from public;
 
 -- ---------------------------------------------------------------------------
 -- Types
@@ -62,7 +64,15 @@ revoke all on function private.reject_mutation() from public;
 -- ---------------------------------------------------------------------------
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
-  display_name text check (display_name is null or char_length(display_name) between 1 and 60),
+  -- Must contain a visible character; no control or bidi-override characters (impersonation).
+  display_name text check (
+    display_name is null
+    or (
+      char_length(display_name) between 1 and 60
+      and display_name ~ '\S'
+      and display_name !~ '[\x01-\x1f\x7f\u200e\u200f\u202a-\u202e\u2066-\u2069]'
+    )
+  ),
   preferred_language text not null default 'en' check (preferred_language in ('en', 'mr')),
   ui_language text not null default 'en' check (ui_language in ('en', 'mr')),
   timezone text not null default 'Asia/Kolkata' check (char_length(timezone) between 1 and 64),
@@ -73,6 +83,24 @@ create table public.profiles (
 
 create trigger profiles_set_updated_at before update on public.profiles
   for each row execute function private.set_updated_at();
+
+-- A bad timezone would break every later query that converts times for this student.
+create function private.validate_profile_timezone() returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if not exists (select 1 from pg_catalog.pg_timezone_names where name = new.timezone) then
+    raise exception 'unknown timezone' using errcode = '22023';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function private.validate_profile_timezone() from public;
+
+create trigger profiles_validate_timezone before insert or update of timezone on public.profiles
+  for each row execute function private.validate_profile_timezone();
 
 alter table public.profiles enable row level security;
 revoke all on public.profiles from anon, authenticated;
@@ -99,7 +127,8 @@ alter table public.user_roles enable row level security;
 revoke all on public.user_roles from anon, authenticated;
 grant select on public.user_roles to authenticated;
 -- No insert/update/delete for authenticated. Role grants happen via service-role jobs or the
--- audited bootstrap script (supabase/scripts/bootstrap-admin.sql); an admin RPC comes later.
+-- bootstrap script (supabase/scripts/bootstrap-admin.sql); an admin RPC comes later.
+-- Staff role changes are audited by trigger (below), whichever path makes them.
 
 -- has_role: role membership; staff roles additionally require an MFA (aal2) session.
 -- SECURITY DEFINER so policies can consult user_roles without recursive RLS evaluation.
@@ -116,6 +145,10 @@ as $$
     and (
       p_role = 'student'::public.app_role
       or coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2'
+    )
+    and not exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.deleted_at is not null
     );
 $$;
 
@@ -127,6 +160,24 @@ create policy user_roles_select_own_or_admin on public.user_roles
   using (user_id = (select auth.uid()) or (select private.has_role('admin')));
 
 -- ---------------------------------------------------------------------------
+-- consent_documents: the published versions of each consent text. Rows are added by the
+-- founder (service role / migration) when a new privacy notice or terms version is published.
+-- ---------------------------------------------------------------------------
+create table public.consent_documents (
+  kind public.consent_kind not null,
+  version text not null check (version ~ '^[A-Za-z0-9._-]{1,32}$'),
+  published_at timestamptz not null default now(),
+  primary key (kind, version)
+);
+
+alter table public.consent_documents enable row level security;
+revoke all on public.consent_documents from anon, authenticated;
+grant select on public.consent_documents to authenticated;
+
+create policy consent_documents_select on public.consent_documents
+  for select to authenticated using (true);
+
+-- ---------------------------------------------------------------------------
 -- consents (append-only evidence)
 -- user_id deliberately has no FK: consent rows are retained as evidence after account
 -- deletion (data-model §8a, pending counsel review R1). They hold no other personal data.
@@ -135,9 +186,11 @@ create table public.consents (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null,
   kind public.consent_kind not null,
-  version text not null check (version ~ '^[A-Za-z0-9._-]{1,32}$'),
+  version text not null,
   granted boolean not null,
-  at timestamptz not null default now()
+  at timestamptz not null default now(),
+  -- Consent can only be recorded against a published document version.
+  foreign key (kind, version) references public.consent_documents (kind, version)
 );
 
 create index consents_user_kind_at_idx on public.consents (user_id, kind, at desc);
@@ -149,6 +202,8 @@ create trigger consents_no_truncate before truncate on public.consents
 
 alter table public.consents enable row level security;
 revoke all on public.consents from anon, authenticated;
+-- Even the service role may only read and append (evidence must not be rewritten).
+revoke update, delete, truncate, trigger, references on public.consents from service_role;
 grant select on public.consents to authenticated;
 
 create policy consents_select_own on public.consents
@@ -173,8 +228,10 @@ begin
   if p_kind is null or p_granted is null then
     raise exception 'kind and granted are required' using errcode = '22023';
   end if;
-  if p_version is null or p_version !~ '^[A-Za-z0-9._-]{1,32}$' then
-    raise exception 'invalid consent version' using errcode = '22023';
+  if p_version is null or not exists (
+    select 1 from public.consent_documents d where d.kind = p_kind and d.version = p_version
+  ) then
+    raise exception 'unknown consent version' using errcode = '22023';
   end if;
 
   insert into public.consents (user_id, kind, version, granted)
@@ -240,6 +297,9 @@ create trigger audit_log_no_truncate before truncate on public.audit_log
 
 alter table public.audit_log enable row level security;
 revoke all on public.audit_log from anon, authenticated;
+revoke update, delete, truncate, trigger, references on public.audit_log from service_role;
+-- The identity sequence inherits Supabase's default grants; setval() could break audit writes.
+revoke all on sequence public.audit_log_id_seq from anon, authenticated;
 grant select on public.audit_log to authenticated;
 
 create policy audit_log_select_admin on public.audit_log
@@ -264,6 +324,33 @@ $$;
 
 revoke all on function private.write_audit(text, text, text, jsonb, uuid) from public;
 grant execute on function private.write_audit(text, text, text, jsonb, uuid) to service_role;
+
+-- Audit every staff role grant/revoke, however it happens (bootstrap, service job, RPC, cascade).
+-- The automatic 'student' role on sign-up is not audited (it would only add noise).
+create function private.audit_user_role_change() returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    perform private.write_audit('role.grant', 'user', new.user_id::text,
+      pg_catalog.jsonb_build_object('role', new.role, 'granted_by', new.granted_by));
+    return new;
+  else
+    perform private.write_audit('role.revoke', 'user', old.user_id::text,
+      pg_catalog.jsonb_build_object('role', old.role));
+    return old;
+  end if;
+end;
+$$;
+
+revoke all on function private.audit_user_role_change() from public;
+
+create trigger user_roles_audit_insert after insert on public.user_roles
+  for each row when (new.role <> 'student') execute function private.audit_user_role_change();
+create trigger user_roles_audit_delete after delete on public.user_roles
+  for each row when (old.role <> 'student') execute function private.audit_user_role_change();
 
 -- ---------------------------------------------------------------------------
 -- New-user provisioning. Never reads user metadata for roles (architecture §5).

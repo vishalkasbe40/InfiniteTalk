@@ -2,14 +2,27 @@ import { describe, expect, it } from 'vitest';
 import {
   actAs,
   actAsAnon,
+  actAsService,
   actAsSuperuser,
   createUser,
   expectSqlError,
   grantRole,
+  publishConsentDocument,
   useDb,
 } from './helpers';
 
 const { db } = useDb();
+
+async function setClaims(claims: Record<string, unknown>) {
+  await db().query('reset role');
+  await db().query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify(claims)]);
+  await db().query('set local role authenticated');
+}
+
+async function hasRole(role: string): Promise<boolean> {
+  const { rows } = await db().query<{ ok: boolean }>('select private.has_role($1) as ok', [role]);
+  return rows[0]!.ok;
+}
 
 describe('new-user provisioning', () => {
   it('creates profile, student role and notification preferences, ignoring metadata', async () => {
@@ -76,15 +89,20 @@ describe('profiles', () => {
     await expectSqlError(db(), 'delete from public.profiles where id = $1', [a]);
   });
 
-  it('rejects invalid values via constraints', async () => {
+  it('rejects invalid language, timezone and display names', async () => {
     const a = await createUser(db());
     await actAs(db(), a);
-    await expectSqlError(
-      db(),
-      "update public.profiles set preferred_language = 'xx' where id = $1",
+    const update = (col: string) => `update public.profiles set ${col} = $2 where id = $1`;
+    await expectSqlError(db(), update('preferred_language'), [a, 'xx'], '23514');
+    await expectSqlError(db(), update('timezone'), [a, 'Not/AZone'], '22023');
+    for (const bad of ['   ', 'a‮b', 'tab\there', 'x'.repeat(61)]) {
+      await expectSqlError(db(), update('display_name'), [a, bad], '23514');
+    }
+    const ok = await db().query(
+      "update public.profiles set timezone = 'Asia/Kolkata', display_name = 'प्रिया' where id = $1",
       [a],
-      '23514',
     );
+    expect(ok.rowCount).toBe(1);
   });
 
   it('anon cannot read profiles', async () => {
@@ -108,65 +126,114 @@ describe('roles and has_role', () => {
     ]);
   });
 
-  it('a student sees only their own roles', async () => {
+  it('a student sees exactly their own roles', async () => {
     const a = await createUser(db());
     await createUser(db());
     await actAs(db(), a);
-    const { rows } = await db().query<{ user_id: string }>('select user_id from public.user_roles');
-    expect(rows.every((r) => r.user_id === a)).toBe(true);
+    const { rows } = await db().query('select user_id, role from public.user_roles');
+    expect(rows).toEqual([{ user_id: a, role: 'student' }]);
+  });
+
+  it('an MFA admin can list all roles; without MFA only their own', async () => {
+    const admin = await createUser(db());
+    const b = await createUser(db());
+    await grantRole(db(), admin, 'admin');
+    await actAs(db(), admin, 'aal1');
+    const own = await db().query('select distinct user_id from public.user_roles');
+    expect(own.rows).toEqual([{ user_id: admin }]);
+    await actAs(db(), admin, 'aal2');
+    const all = await db().query(
+      'select distinct user_id from public.user_roles where user_id = any($1)',
+      [[admin, b]],
+    );
+    expect(all.rowCount).toBe(2);
   });
 
   it('student role works without MFA', async () => {
     const a = await createUser(db());
     await actAs(db(), a, 'aal1');
-    const { rows } = await db().query("select private.has_role('student') as ok");
-    expect(rows[0].ok).toBe(true);
+    expect(await hasRole('student')).toBe(true);
   });
 
   it('admin role is denied without MFA (aal1) and granted with aal2', async () => {
     const admin = await createUser(db());
     await grantRole(db(), admin, 'admin');
     await actAs(db(), admin, 'aal1');
-    expect((await db().query("select private.has_role('admin') as ok")).rows[0].ok).toBe(false);
+    expect(await hasRole('admin')).toBe(false);
     await actAs(db(), admin, 'aal2');
-    expect((await db().query("select private.has_role('admin') as ok")).rows[0].ok).toBe(true);
+    expect(await hasRole('admin')).toBe(true);
   });
 
   it('content_reviewer also requires aal2', async () => {
     const r = await createUser(db());
     await grantRole(db(), r, 'content_reviewer');
     await actAs(db(), r, 'aal1');
-    expect((await db().query("select private.has_role('content_reviewer') as ok")).rows[0].ok).toBe(
-      false,
-    );
+    expect(await hasRole('content_reviewer')).toBe(false);
   });
 
   it('a student with aal2 still is not an admin', async () => {
     const a = await createUser(db());
     await actAs(db(), a, 'aal2');
-    expect((await db().query("select private.has_role('admin') as ok")).rows[0].ok).toBe(false);
+    expect(await hasRole('admin')).toBe(false);
+  });
+
+  it('has_role fails closed when the JWT has no aal or no sub claim', async () => {
+    const admin = await createUser(db());
+    await grantRole(db(), admin, 'admin');
+    await setClaims({ sub: admin, role: 'authenticated' });
+    expect(await hasRole('admin')).toBe(false);
+    await setClaims({ role: 'authenticated', aal: 'aal2' });
+    expect(await hasRole('admin')).toBe(false);
   });
 
   it('a forged role claim in the JWT does not grant admin', async () => {
     const a = await createUser(db());
-    await db().query('reset role');
-    await db().query("select set_config('request.jwt.claims', $1, true)", [
-      JSON.stringify({
-        sub: a,
-        role: 'authenticated',
-        aal: 'aal2',
-        app_role: 'admin',
-        user_role: 'admin',
-      }),
+    await setClaims({
+      sub: a,
+      role: 'authenticated',
+      aal: 'aal2',
+      app_role: 'admin',
+      user_role: 'admin',
+    });
+    expect(await hasRole('admin')).toBe(false);
+  });
+
+  it('a soft-deleted admin loses staff access', async () => {
+    const admin = await createUser(db());
+    await grantRole(db(), admin, 'admin');
+    await actAsSuperuser(db());
+    await db().query('update public.profiles set deleted_at = now() where id = $1', [admin]);
+    await actAs(db(), admin, 'aal2');
+    expect(await hasRole('admin')).toBe(false);
+  });
+
+  it('every staff role grant and revoke is audited, even via the service role', async () => {
+    const u = await createUser(db());
+    await actAsService(db());
+    await db().query(
+      "insert into public.user_roles (user_id, role) values ($1, 'content_reviewer')",
+      [u],
+    );
+    await db().query(
+      "delete from public.user_roles where user_id = $1 and role = 'content_reviewer'",
+      [u],
+    );
+    await actAsSuperuser(db());
+    const { rows } = await db().query(
+      "select action, meta->>'role' as role from public.audit_log where entity_id = $1 order by id",
+      [u],
+    );
+    expect(rows).toEqual([
+      { action: 'role.grant', role: 'content_reviewer' },
+      { action: 'role.revoke', role: 'content_reviewer' },
     ]);
-    await db().query('set local role authenticated');
-    expect((await db().query("select private.has_role('admin') as ok")).rows[0].ok).toBe(false);
   });
 });
 
 describe('consents', () => {
   it('a student cannot insert consent rows directly', async () => {
     const a = await createUser(db());
+    await publishConsentDocument(db(), 'terms', 'v1');
     await actAs(db(), a);
     await expectSqlError(
       db(),
@@ -178,14 +245,10 @@ describe('consents', () => {
   it('api_record_consent records consent for the caller only', async () => {
     const a = await createUser(db());
     const b = await createUser(db());
+    await publishConsentDocument(db(), 'terms', '2026-11-01');
     await actAs(db(), a);
     await db().query("select public.api_record_consent('terms', '2026-11-01', true)");
-    const mine = await db().query<{
-      user_id: string;
-      kind: string;
-      version: string;
-      granted: boolean;
-    }>('select user_id, kind, version, granted from public.consents');
+    const mine = await db().query('select user_id, kind, version, granted from public.consents');
     expect(mine.rows).toEqual([
       { user_id: a, kind: 'terms', version: '2026-11-01', granted: true },
     ]);
@@ -193,37 +256,50 @@ describe('consents', () => {
     expect((await db().query('select * from public.consents')).rowCount).toBe(0);
   });
 
-  it('withdrawal is a new row; consent rows cannot be edited or deleted', async () => {
+  it('withdrawal is a new row; nobody can edit, delete or truncate consents', async () => {
     const a = await createUser(db());
+    await publishConsentDocument(db(), 'email_reminders', 'v1');
     await actAs(db(), a);
     await db().query("select public.api_record_consent('email_reminders', 'v1', true)");
     await db().query("select public.api_record_consent('email_reminders', 'v1', false)");
     expect((await db().query('select * from public.consents')).rowCount).toBe(2);
     await expectSqlError(db(), 'update public.consents set granted = true');
     await expectSqlError(db(), 'delete from public.consents');
-    // Even the owner/service path cannot rewrite history.
-    await actAsSuperuser(db());
-    await expectSqlError(db(), 'update public.consents set granted = true');
-    await expectSqlError(db(), 'delete from public.consents');
+    for (const actor of [actAsService, actAsSuperuser]) {
+      await actor(db());
+      await expectSqlError(db(), 'update public.consents set granted = true');
+      await expectSqlError(db(), 'delete from public.consents');
+      await expectSqlError(db(), 'truncate public.consents');
+    }
   });
 
-  it('rejects invalid versions and unauthenticated callers', async () => {
+  it('rejects unpublished versions and unauthenticated callers', async () => {
     const a = await createUser(db());
+    await publishConsentDocument(db(), 'terms', 'v1');
     await actAs(db(), a);
-    await expectSqlError(
-      db(),
-      "select public.api_record_consent('terms', 'bad version!', true)",
-      [],
-      '22023',
-    );
-    await expectSqlError(
-      db(),
-      "select public.api_record_consent('terms', $1, true)",
-      ['x'.repeat(33)],
-      '22023',
-    );
+    const call = 'select public.api_record_consent($1, $2, true)';
+    await expectSqlError(db(), call, ['terms', 'v999'], '22023');
+    await expectSqlError(db(), call, ['privacy_notice', 'v1'], '22023');
+    await expectSqlError(db(), call, ['terms', 'bad version!'], '22023');
     await actAsAnon(db());
-    await expectSqlError(db(), "select public.api_record_consent('terms', 'v1', true)");
+    await expectSqlError(db(), call, ['terms', 'v1']);
+    // authenticated role but no user id in the token: the function's own check
+    await setClaims({ role: 'authenticated' });
+    await expectSqlError(db(), call, ['terms', 'v1']);
+  });
+
+  it('students can read published consent documents but not change them', async () => {
+    const a = await createUser(db());
+    await publishConsentDocument(db(), 'terms', 'v1');
+    await actAs(db(), a);
+    const docs = await db().query(
+      "select version from public.consent_documents where kind = 'terms'",
+    );
+    expect(docs.rows).toEqual([{ version: 'v1' }]);
+    await expectSqlError(
+      db(),
+      "insert into public.consent_documents (kind, version) values ('terms', 'v2')",
+    );
   });
 });
 
@@ -232,25 +308,10 @@ describe('notification_preferences', () => {
     const a = await createUser(db());
     const b = await createUser(db());
     await actAs(db(), a);
-    expect(
-      (
-        await db().query(
-          'update public.notification_preferences set email = true where user_id = $1',
-          [a],
-        )
-      ).rowCount,
-    ).toBe(1);
-    expect(
-      (
-        await db().query(
-          'update public.notification_preferences set email = true where user_id = $1',
-          [b],
-        )
-      ).rowCount,
-    ).toBe(0);
-    const { rows } = await db().query<{ user_id: string }>(
-      'select user_id from public.notification_preferences',
-    );
+    const set = 'update public.notification_preferences set email = true where user_id = $1';
+    expect((await db().query(set, [a])).rowCount).toBe(1);
+    expect((await db().query(set, [b])).rowCount).toBe(0);
+    const { rows } = await db().query('select user_id from public.notification_preferences');
     expect(rows).toEqual([{ user_id: a }]);
   });
 
@@ -292,10 +353,23 @@ describe('audit_log', () => {
     await actAs(db(), admin, 'aal1');
     expect((await db().query('select * from public.audit_log')).rowCount).toBe(0);
     await actAs(db(), admin, 'aal2');
-    expect((await db().query('select * from public.audit_log')).rowCount).toBe(1);
+    expect(
+      (await db().query("select 1 from public.audit_log where action = 'test'")).rowCount,
+    ).toBe(1);
     await expectSqlError(db(), "update public.audit_log set action = 'x'");
-    await actAsSuperuser(db());
-    await expectSqlError(db(), "update public.audit_log set action = 'x'");
-    await expectSqlError(db(), 'delete from public.audit_log');
+    for (const actor of [actAsService, actAsSuperuser]) {
+      await actor(db());
+      await expectSqlError(db(), "update public.audit_log set action = 'x'");
+      await expectSqlError(db(), 'delete from public.audit_log');
+      await expectSqlError(db(), 'truncate public.audit_log');
+    }
+  });
+
+  it('nobody but the owner can reset the audit sequence', async () => {
+    const a = await createUser(db());
+    await actAs(db(), a);
+    await expectSqlError(db(), "select setval('public.audit_log_id_seq', 1)");
+    await actAsAnon(db());
+    await expectSqlError(db(), "select setval('public.audit_log_id_seq', 1)");
   });
 });

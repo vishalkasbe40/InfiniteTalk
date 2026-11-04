@@ -55,6 +55,43 @@ describe('schema guards', () => {
     expect(rows.map((r) => r.proname).filter((n) => !allowed.includes(n))).toEqual([]);
   });
 
+  it('grants anon and authenticated nothing on public sequences', async () => {
+    const { rows } = await db().query(`
+      select c.relname, r.rolname, p.priv
+      from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      cross join (values ('anon'), ('authenticated')) as r(rolname)
+      cross join unnest(array['USAGE','SELECT','UPDATE']) as p(priv)
+      where n.nspname = 'public' and c.relkind = 'S'
+        and has_sequence_privilege(r.rolname, c.oid, p.priv)`);
+    expect(rows).toEqual([]);
+  });
+
+  it('keeps evidence tables append-only even for service_role', async () => {
+    const { rows } = await db().query(`
+      select t.tbl, p.priv
+      from unnest(array['public.consents','public.audit_log']) as t(tbl)
+      cross join unnest(array['UPDATE','DELETE','TRUNCATE']) as p(priv)
+      where has_table_privilege('service_role', t.tbl, p.priv)`);
+    expect(rows).toEqual([]);
+  });
+
+  it('requires security_invoker on every public view', async () => {
+    const { rows } = await db().query(`
+      select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relkind = 'v'
+        and not coalesce('security_invoker=true' = any(c.reloptions), false)`);
+    expect(rows).toEqual([]);
+  });
+
+  it('has no functions executable by authenticated outside public/private/auth', async () => {
+    const { rows } = await db().query(`
+      select n.nspname, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname not in ('public', 'private', 'auth', 'pg_catalog', 'information_schema')
+        and n.nspname not like 'pg_toast%' and n.nspname not like 'pg_temp%'
+        and has_function_privilege('authenticated', p.oid, 'EXECUTE')`);
+    expect(rows).toEqual([]);
+  });
+
   it('pins search_path on every SECURITY DEFINER function', async () => {
     const { rows } = await db().query<{ proname: string }>(`
       select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace

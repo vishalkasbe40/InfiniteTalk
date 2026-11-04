@@ -21,7 +21,8 @@ Legend for the **RLS** column:
 |---|---|---|---|
 | `profiles` | `id` (= auth.users.id), `display_name`, `preferred_language` (`en`,`mr`), `ui_language`, `timezone` (default `Asia/Kolkata`), `deleted_at` | own (cols: display_name, preferred_language, ui_language, timezone) | No phone, DOB, address or category in the MVP. |
 | `user_roles` | `user_id`, `role` (`student`,`content_reviewer`,`admin`), `granted_by`, `granted_at` | admin (users can read their own) | Read by `has_role()`. Grants are audited. |
-| `consents` | `user_id`, `kind` (`privacy_notice`,`terms`,`age_18_plus`,`email_reminders`), `version`, `granted bool`, `at` | own-ro, insert-only | Withdrawal is a new row with `granted=false`; the latest row wins. |
+| `consent_documents` | pk `(kind, version)`, `published_at` | authenticated read; written by the founder/service role | Each published privacy notice / terms version. Consent can only reference a published version (FK). |
+| `consents` | `user_id` (no FK, so rows survive account deletion as evidence), `kind` (`privacy_notice`,`terms`,`age_18_plus`,`email_reminders`), `version`, `granted bool`, `at` | own-ro, insert-only | Withdrawal is a new row with `granted=false`; the latest row wins. |
 | `notification_preferences` | `user_id` pk, `in_app bool`, `email bool`, `quiet_start time`, `quiet_end time`, `paused_until timestamptz`, `max_per_day int` | own | Email is sent only if a `consents.email_reminders` row exists and is granted. |
 
 ## 2. Exam taxonomy and syllabus (content)

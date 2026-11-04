@@ -45,7 +45,8 @@ jobs:
       - run: pnpm build
       - name: Service-role key must never reach client bundles
         run: |
-          if grep -rl "SUPABASE_SERVICE_ROLE_KEY" apps/web/.next/static 2>/dev/null; then
-            echo "Service-role key name found in client bundle" >&2
+          test -d apps/web/.next/static || { echo "client bundle directory missing" >&2; exit 1; }
+          if grep -rlE 'SUPABASE_SERVICE_ROLE_KEY|"role"[[:space:]]*:[[:space:]]*"service_role"' apps/web/.next/static; then
+            echo "Service-role key reference found in client bundle" >&2
             exit 1
           fi

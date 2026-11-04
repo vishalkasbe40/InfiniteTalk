@@ -27,6 +27,8 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M1-10 | Student dashboard first-run state → "Start diagnostic" | FE | S | M1-9 | Loading/empty/error states |
 | M1-11 | Fictional seed: GS-I taxonomy skeleton marked `[FICTIONAL SEED]` | Content | S | M1-6 | No real personal data |
 | M1-12 | Analytics event writer + onboarding events | Backend | S | M1-3 | Allow-listed props only |
+| M1-13 | CI job running the DB suite on a real `supabase start` stack (no shim) + one GoTrue sign-up and PostgREST RLS smoke test (ADR 0004 mitigation, brought forward by review 0002) | DevOps | M | M1-3 | Must pass before M1-4 is deployed to staging |
+| M1-14 | Service-role client module with `import 'server-only'` | Backend | S | M1-4 | Part of M1-4 |
 
 ## Milestone 2 — Diagnostic and plan (≈ 3 weeks)
 | ID | Task | Owner | Size | Depends |
@@ -74,7 +76,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M5-4 | **Gate:** error monitoring (PII-scrubbed), backups/PITR, restore drill, incident + breach-notification runbook | DevOps | M |
 | M5-8 | **Gate:** email reminders have one-click unsubscribe + `List-Unsubscribe`; opt-out E2E test | Backend | S |
 | M5-9 | **Gate:** DB policy test matrix covers every user-linked table and every exposed function; deletion job E2E test | QA | M |
-| M5-10 | Retention cron jobs per DM §8a | Backend | S |
+| M5-10 | Retention cron jobs per DM §8a, including an audited, owner-only purge path for `audit_log`/`consents` once counsel decides R1 (review 0002 #8) | Backend | S |
 | M5-5 | Privacy notice and terms drafts for **counsel review** | Founder/Legal | — |
 | M5-6 | Accessibility + low-end Android manual pass | QA/FE | S |
 | M5-7 | Beta onboarding of 20–50 users (founder approval to deploy) | Founder | — |

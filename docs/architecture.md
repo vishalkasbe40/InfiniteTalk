@@ -170,7 +170,8 @@ from transcripts, so no extra LLM pass is needed. *Founder to confirm the 30-day
 - Re-embedding is triggered when content is approved or changed; old chunks are deactivated, not mutated.
 
 ## 5. Authentication and roles
-- Supabase Auth (email + password, magic link) with the **PKCE** flow. Sessions use httpOnly cookies via `@supabase/ssr`.
+- Supabase Auth (email + password, magic link) with the **PKCE** flow. **Anonymous sign-ins are disabled**
+  in the Supabase Auth settings (every `to authenticated` policy would otherwise match them). Sessions use httpOnly cookies via `@supabase/ssr`.
 - **Sign-up only through a server action** that checks the beta invite allowlist and CAPTCHA, creates the user, and
   writes the three consent rows. Magic link is sign-in only (`shouldCreateUser: false`).
 - **Consent middleware:** every app route except auth and legal pages redirects to a consent screen unless the user
