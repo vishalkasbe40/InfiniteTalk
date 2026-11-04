@@ -4,7 +4,22 @@ A personalised preparation platform for Indian government exams. It combines a d
 a realistic syllabus-mapped study plan, and an AI teacher grounded in reviewed content. The first
 target is MPSC (Maharashtra), with English and Marathi.
 
-> **Status:** Milestone 0 (planning). There is no application code yet.
+> **Status:** Milestone 1 in progress. The app scaffold, CI and base identity schema exist; there are no student features yet.
+
+## Local development
+Requirements: Node 22, pnpm 10 (`corepack enable`), and a disposable PostgreSQL 16 for the DB tests.
+
+```bash
+pnpm install
+pnpm dev --filter @examsaathi/web        # http://localhost:3000
+pnpm typecheck && pnpm lint && pnpm test && pnpm build
+TEST_DATABASE_URL=postgres://postgres@localhost:5432/postgres pnpm test:db
+```
+
+`pnpm test:db` creates a throwaway database on that server, applies `supabase/tests/shim/supabase-shim.sql`
+and every migration in `supabase/migrations/`, runs the policy tests, then drops the database
+([ADR 0004](docs/decisions/0004-db-policy-testing.md)). Never point it at a real project.
+Copy `.env.example` to `apps/web/.env.local` when the Supabase integration lands (M1-4).
 
 ## Start here
 | Doc | What it covers |
@@ -19,7 +34,7 @@ target is MPSC (Maharashtra), with English and Marathi.
 
 ## Planned stack
 Next.js + TypeScript (strict), Supabase (Postgres, Auth, RLS, pgvector), pnpm workspaces,
-Vitest, Playwright, pgTAP. See `docs/architecture.md`.
+Vitest, Playwright. See `docs/architecture.md`.
 
 ## Legacy code
 This repository was previously a fork of InfiniteTalk (talking-video generation). That code

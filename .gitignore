@@ -29,3 +29,6 @@ test-results/
 # python (legacy)
 __pycache__/
 *.pyc
+
+# next
+next-env.d.ts

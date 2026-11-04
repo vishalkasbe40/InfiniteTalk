@@ -1,6 +1,6 @@
 # ADR 0001 — MVP scope and first learning loop
 
-- Status: **Proposed** (needs founder acceptance of the open decisions below)
+- Status: **Accepted** (founder accepted all proposed defaults for D1–D10 and R1–R8 on 2026-11-04; R1–R3 and R7 still need counsel review before the beta)
 - Date: 2026-11-03
 - Deciders: Founder; CEO/orchestrator agent (proposer)
 
@@ -9,7 +9,7 @@
 operate all of them safely at once. The North-star is to help one real aspirant make measurable
 progress toward one real exam.
 
-## Decision (proposed)
+## Decision
 1. **One exam, one paper:** MPSC State Services (Rajyaseva) Prelims, GS Paper I. The data model stays multi-exam.
 2. **One loop first:** onboarding → diagnostic → baseline → deterministic plan → learn/practise/tutor →
    events/mastery → progress and re-plan proposals. That is Milestones 1–4, then M5 beta readiness.

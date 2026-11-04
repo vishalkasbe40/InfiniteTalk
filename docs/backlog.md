@@ -10,18 +10,18 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M0-1 | Move InfiniteTalk to `legacy/`, add CLAUDE.md | CEO | S | Done |
 | M0-2 | PRD, architecture, data model, ADR 0001/0002, backlog | CEO/PM/Architect | M | Done (draft) |
 | M0-3 | Independent QA/Security review of the docs, findings resolved or recorded | QA | S | Done: [review 0001](reviews/0001-m0-security-review.md); fixes in docs, not yet implemented |
-| M0-4 | Founder decisions D1–D10 and R1–R8 (ADR 0001) | Founder | — | **Waiting** |
+| M0-4 | Founder decisions D1–D10 and R1–R8 (ADR 0001) | Founder | — | Done: defaults accepted 2026-11-04 (counsel items open) |
 
 ## Milestone 1 — Student foundation (≈ 2–3 weeks)
-| ID | Task | Owner | Size | Depends | Acceptance |
-|---|---|---|---|---|---|
-| M1-1 | Scaffold: pnpm workspace, Next.js app, TS strict, ESLint/Prettier, Vitest, Playwright, `.env.example` | DevOps/FE | M | M0-4 (D7) | `pnpm typecheck lint test build` pass in CI |
-| M1-2 | CI workflow (GitHub Actions): typecheck, lint, unit, `supabase test db`, build | DevOps | S | M1-1 | Green on PR |
-| M1-3 | Supabase local setup, base migration: profiles, user_roles, `has_role()`, consents, notification_preferences, audit_log; ADR 0003 grant pattern + `private` schema | Backend | M | M1-1 | pgTAP: cross-user denial, no self role grant, no direct writes on own-ro tables |
-| M1-4 | Auth flows: invite-only sign-up server action (allowlist, CAPTCHA, 18+/privacy/terms consent), magic-link sign-in (`shouldCreateUser:false`), reset, sign-out, PKCE, consent middleware, Supabase Auth rate limits | FE/Backend | M | M1-3 | E2E: no account without consent; generic errors; consent re-prompt on version bump |
+| ID | Task | Owner | Size | Depends | Acceptance | Status |
+|---|---|---|---|---|---|---|
+| M1-1 | Scaffold: pnpm workspace, Next.js app, TS strict, ESLint/Prettier, Vitest, `.env.example` (Playwright moved to M1-4) | DevOps/FE | M | M0-4 (D7) | `pnpm typecheck lint test build` pass in CI | **Done (local); CI not yet run on GitHub** |
+| M1-2 | CI workflow (GitHub Actions): format, typecheck, lint, unit, DB tests (Postgres service), build, bundle secret check | DevOps | S | M1-1 | Green on PR | **Written; not yet run on GitHub** |
+| M1-3 | Supabase local setup, base migration: profiles, user_roles, `has_role()`, consents, notification_preferences, audit_log; ADR 0003 grant pattern + `private` schema | Backend | M | M1-1 | DB tests: cross-user denial, no self role grant, no direct writes on own-ro tables | **Done (local, 29 tests)** |
+| M1-4 | Auth flows: invite-only sign-up server action (allowlist, CAPTCHA, 18+/privacy/terms consent), magic-link sign-in (`shouldCreateUser:false`), reset, sign-out, PKCE, consent middleware, Supabase Auth rate limits | FE/Backend | M | M1-3 | E2E (adds Playwright): no account without consent; generic errors; consent re-prompt on version bump |
 | M1-5 | i18n framework (en/mr UI strings), Devanagari font, language switcher | FE | S | M1-1 | All M1 screens switch language |
 | M1-6 | Taxonomy migration: exam_families → topics, prerequisites, sources, syllabus_versions | Backend/Content | M | M1-3 | RLS approved-read tests |
-| M1-7 | Admin shell: role + `aal2` gated layout and actions, TOTP enrolment, first-admin bootstrap script, audit-logged actions | FE/Backend | M | M1-3 | Non-admin and `aal1` admin denied (pgTAP + E2E); audit rows written |
+| M1-7 | Admin shell: role + `aal2` gated layout and actions, TOTP enrolment, first-admin bootstrap script, audit-logged actions | FE/Backend | M | M1-3 | Non-admin and `aal1` admin denied (DB tests + E2E); audit rows written |
 | M1-8 | Admin CRUD: exams, syllabus versions, subjects, topics, sources | FE | M | M1-6, M1-7 | Status workflow enforced |
 | M1-9 | Onboarding (≤ 6 steps): paper, language, target date, weekly minutes, rest days | FE | M | M1-4, M1-6 | ≤ 3 min; "why we ask" on each step |
 | M1-10 | Student dashboard first-run state → "Start diagnostic" | FE | S | M1-9 | Loading/empty/error states |
@@ -73,7 +73,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M5-3 | Security review (RLS matrix, headers, rate limits, dependency audit) | QA | M |
 | M5-4 | **Gate:** error monitoring (PII-scrubbed), backups/PITR, restore drill, incident + breach-notification runbook | DevOps | M |
 | M5-8 | **Gate:** email reminders have one-click unsubscribe + `List-Unsubscribe`; opt-out E2E test | Backend | S |
-| M5-9 | **Gate:** pgTAP matrix covers every user-linked table and every exposed function; deletion job E2E test | QA | M |
+| M5-9 | **Gate:** DB policy test matrix covers every user-linked table and every exposed function; deletion job E2E test | QA | M |
 | M5-10 | Retention cron jobs per DM §8a | Backend | S |
 | M5-5 | Privacy notice and terms drafts for **counsel review** | Founder/Legal | — |
 | M5-6 | Accessibility + low-end Android manual pass | QA/FE | S |

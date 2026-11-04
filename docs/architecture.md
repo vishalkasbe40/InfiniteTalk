@@ -39,14 +39,15 @@ only if a need appears that TypeScript can't handle well (e.g. IRT calibration j
 ├── supabase/
 │   ├── migrations/            SQL migrations (forward + documented rollback)
 │   ├── seed/                  Clearly fictional seed data
-│   └── tests/                 pgTAP RLS / policy tests
+│   ├── scripts/               One-off, founder-run SQL (e.g. bootstrap-admin.sql)
+│   └── tests/                 RLS / policy tests (Vitest + pg, Supabase shim)
 ├── tests/e2e/                 Playwright journeys
 └── legacy/infinitetalk/       Previous repo contents, untouched (see ADR 0002)
 ```
 
-Tooling: pnpm workspaces, TypeScript strict, ESLint, Prettier, Vitest (unit), pgTAP via
-`supabase test db` (policies), Playwright (E2E). CI runs typecheck, lint, unit tests,
-DB tests on a local Supabase, then build.
+Tooling: pnpm workspaces, TypeScript strict, ESLint, Prettier, Vitest (unit), Vitest + `pg` against a
+Supabase shim for policies ([ADR 0004](decisions/0004-db-policy-testing.md)), Playwright (E2E). CI runs
+format, typecheck, lint, unit tests, DB tests on a Postgres 16 service, then build.
 
 ## 3. Module boundaries
 
@@ -165,7 +166,7 @@ from transcripts, so no extra LLM pass is needed. *Founder to confirm the 30-day
 - Hybrid search: full-text rank + vector similarity, always filtered to `status = 'approved'`, the student's
   exam/syllabus version and language (with English fallback). Each chunk carries `source_id` for citation.
 - **The student-facing retrieval function never returns `owner_type = 'question_answer'` chunks.** Answer
-  explanations reach students only through `reveal_answer` (§6). A pgTAP test and an eval case assert this.
+  explanations reach students only through `reveal_answer` (§6). A DB policy test and an eval case assert this.
 - Re-embedding is triggered when content is approved or changed; old chunks are deactivated, not mutated.
 
 ## 5. Authentication and roles
@@ -188,7 +189,7 @@ from transcripts, so no extra LLM pass is needed. *Founder to confirm the 30-day
 - **RLS on every table in `public`.** Student-owned tables use `student_id = auth.uid()`. Content tables
   allow `select` to authenticated users only where `status = 'approved'`; write access needs `has_role('admin')`
   or `has_role('content_reviewer')` with specific transitions.
-- **Cross-user denial tests** in pgTAP for every student-owned table (student A can't select, insert, update or delete B's rows).
+- **Cross-user denial tests** (DB policy tests, ADR 0004) for every student-owned table (student A can't select, insert, update or delete B's rows).
 - **Privileged writes** follow [ADR 0003](decisions/0003-privileged-db-functions.md): student tables marked
   `own-ro` get no direct `insert/update/delete` grants for `authenticated`. Writes go through narrow RPCs that
   derive the user from `auth.uid()`; internals live in a non-exposed `private` schema with `EXECUTE` revoked.
@@ -241,7 +242,7 @@ Planned env vars (`.env.example` will be added with the app scaffold in M1):
 ## 9. Threat model summary (top risks)
 | Threat | Mitigation |
 |---|---|
-| Cross-user data access via missing RLS | RLS default-deny, pgTAP tests per table **and per exposed function**, CI gate |
+| Cross-user data access via missing RLS | RLS default-deny, DB policy tests per table **and per exposed function**, CI gate |
 | Direct PostgREST writes forging scores, mastery or quota | ADR 0003: no direct writes on `own-ro` tables, column grants, `private` schema |
 | Answer-key leakage before submit | No student select on keys or the bank, submit-gated `reveal_answer`, tutor lock during timed attempts, retrieval excludes answer chunks, held-out pool; E2E payload test |
 | Account farming / email bombing | Invite allowlist, CAPTCHA, Supabase Auth rate limits, generic responses |

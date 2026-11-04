@@ -101,7 +101,7 @@ Legend for the **RLS** column:
 6. `question_answers` and `questions` are never readable by students except through their RPCs; the student retrieval
    function never returns `question_answer` chunks; no tutor or practice access to the items of an in-progress mock/diagnostic.
 7. No student can read or write another student's rows in **any** user-linked table (§1, §3 `content_reports`, §4–§7),
-   and every function exposed to `authenticated` has a pgTAP test for cross-user and forged-argument denial.
+   and every function exposed to `authenticated` has a DB policy test for cross-user and forged-argument denial.
 8. Content status transitions follow `draft → in_review → approved → retired`; `approved` requires `reviewed_by ≠ author`
    once a second reviewer exists (a single-founder exception is logged).
 9. Direct PostgREST `insert/update/delete` from `authenticated` on any `own-ro` table fails.

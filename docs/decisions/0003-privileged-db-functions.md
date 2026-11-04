@@ -22,7 +22,7 @@ client instead, RLS is bypassed and every handler becomes a privilege boundary.
      mastery parameters and derive the user from `auth.uid()`;
    - set `search_path = ''` and fully qualify every object;
    - validate argument ranges and the ownership of every referenced id.
-4. Each exposed wrapper has pgTAP tests for: anon denied, cross-user ids rejected, forged arguments rejected.
+4. Each exposed wrapper has DB policy tests (ADR 0004) for: anon denied, cross-user ids rejected, forged arguments rejected.
 
 ## Consequences
 - Slightly more SQL to write. In return, the security boundary sits in one reviewable place, and
