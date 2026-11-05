@@ -48,7 +48,8 @@ describe('schema guards', () => {
   });
 
   it('lets authenticated execute only allow-listed private functions', async () => {
-    const allowed = ['has_role']; // read-only helper used inside RLS policies
+    // Read-only helpers used inside RLS policies.
+    const allowed = ['has_role', 'can_read_content'];
     const { rows } = await db().query<{ proname: string }>(`
       select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'private' and has_function_privilege('authenticated', p.oid, 'EXECUTE')`);

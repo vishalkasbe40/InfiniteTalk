@@ -29,6 +29,12 @@ Sign-up is invite-only. Until the admin screens exist, add invitations in the Su
 optionally a note, and save. The student can then create an account at `/signup` with that email.
 Each invitation works once.
 
+## Exam and syllabus data (founder / content reviewer)
+Local development and CI use `supabase/seed.sql`: clearly labelled **sample data**, not the official
+syllabus. On the hosted project the real exam, paper and syllabus records must be entered from the
+official MPSC notification and syllabus, with a `sources` row cited, and set to `approved` only after
+review. Until the admin screens exist (M1-8), use the Table Editor. Students only ever see `approved` rows.
+
 ## Hosted Supabase project settings (one-time, founder)
 - Authentication → Sign In / Providers: anonymous sign-ins **off**, "Allow new users to sign up" **off**,
   email provider **on**, "Confirm email" **on**, minimum password length **8**.

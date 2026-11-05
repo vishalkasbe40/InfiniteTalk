@@ -20,12 +20,12 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M1-3 | Supabase local setup, base migration: profiles, user_roles, `has_role()`, consents, notification_preferences, audit_log; ADR 0003 grant pattern + `private` schema | Backend | M | M1-1 | DB tests: cross-user denial, no self role grant, no direct writes on own-ro tables | **Done (local, 29 tests)** |
 | M1-4 | Auth flows: invite-only sign-up server action (allowlist, CAPTCHA, 18+/privacy/terms consent), magic-link sign-in (`shouldCreateUser:false`), reset, sign-out, PKCE, consent middleware, Supabase Auth rate limits | FE/Backend | M | M1-3 | E2E (adds Playwright): no account without consent; generic errors; consent re-prompt on version bump | **Done**: review 0003 fixed; 14 E2E journeys green on CI (real Supabase + email). CAPTCHA split to M1-15 |
 | M1-5 | i18n framework (en/mr UI strings), Devanagari font, language switcher | FE | S | M1-1 | All M1 screens switch language |
-| M1-6 | Taxonomy migration: exam_families → topics, prerequisites, sources, syllabus_versions | Backend/Content | M | M1-3 | RLS approved-read tests |
+| M1-6 | Taxonomy migration: exam_families → topics, prerequisites, sources, syllabus_versions | Backend/Content | M | M1-3 | RLS approved-read tests | **Done** (migration `20261105000200`; approved-read RLS; prerequisite cycle check) |
 | M1-7 | Admin shell: role + `aal2` gated layout and actions, TOTP enrolment, first-admin bootstrap script, audit-logged actions | FE/Backend | M | M1-3 | Non-admin and `aal1` admin denied (DB tests + E2E); audit rows written |
 | M1-8 | Admin CRUD: exams, syllabus versions, subjects, topics, sources | FE | M | M1-6, M1-7 | Status workflow enforced |
-| M1-9 | Onboarding (≤ 6 steps): paper, language, target date, weekly minutes, rest days | FE | M | M1-4, M1-6 | ≤ 3 min; "why we ask" on each step |
-| M1-10 | Student dashboard first-run state → "Start diagnostic" | FE | S | M1-9 | Loading/empty/error states |
-| M1-11 | Fictional seed: GS-I taxonomy skeleton marked `[FICTIONAL SEED]` | Content | S | M1-6 | No real personal data |
+| M1-9 | Onboarding (≤ 6 steps): paper, language, target date, weekly minutes, rest days | FE | M | M1-4, M1-6 | ≤ 3 min; "why we ask" on each step | **Done**: one page, 4 questions with "why we ask"; `api_save_onboarding` RPC |
+| M1-10 | Student dashboard first-run state → "Start diagnostic" | FE | S | M1-9 | Loading/empty/error states | **Done**: first-run card → onboarding; goal summary afterwards |
+| M1-11 | Fictional seed: GS-I taxonomy skeleton marked `[FICTIONAL SEED]` | Content | S | M1-6 | No real personal data | **Done**: `supabase/seed.sql`, labelled "(sample data)", no official facts |
 | M1-12 | Analytics event writer + onboarding events | Backend | S | M1-3 | Allow-listed props only |
 | M1-13 | CI job running the DB suite on a real `supabase start` stack (no shim) + one GoTrue sign-up and PostgREST RLS smoke test (ADR 0004 mitigation, brought forward by review 0002) | DevOps | M | M1-3 | Must pass before M1-4 is deployed to staging | **Done**: green on CI |
 | M1-14 | Service-role client module with `import 'server-only'` | Backend | S | M1-4 | Part of M1-4 | **Done** (`apps/web/lib/supabase/admin.ts`) |

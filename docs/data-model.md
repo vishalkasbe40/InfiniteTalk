@@ -32,7 +32,7 @@ Legend for the **RLS** column:
 | `exam_families` | `code` (e.g. `MPSC`), `name_en`, `name_mr`, `status` | approved-read | Supports SSC, Banking etc. later. |
 | `exams` | `family_id`, `code` (`MPSC_RAJYASEVA`), `name_en`, `name_mr`, `state`, `status` | approved-read | |
 | `exam_stages` | `exam_id`, `code` (`PRELIMS`), `order`, `status` | approved-read | |
-| `papers` | `stage_id`, `code` (`GS1`), `duration_min`, `total_marks`, `negative_marking numeric`, `status` | approved-read | Marking scheme must cite a `source_id`. |
+| `papers` | `stage_id`, `code` (`GS1`), `name_en/mr`, `duration_min`, `total_marks`, `negative_marking numeric`, `source_id`, `status` | approved-read | Exam facts may stay empty; if any is set, `source_id` is required (check constraint). |
 | `syllabus_versions` | `paper_id`, `label`, `effective_from`, `source_id`, `status` (`draft`,`approved`,`retired`) | approved-read | Students are pinned to a version. |
 | `subjects` | `syllabus_version_id`, `name_en`, `name_mr`, `order`, `status` | approved-read | |
 | `topics` | `subject_id`, `parent_topic_id` (subtopics), `name_en`, `name_mr`, `weight numeric`, `est_learn_min`, `status` | approved-read | `weight` must be justified (source or note). |
@@ -65,7 +65,7 @@ Legend for the **RLS** column:
 | Table | Key columns | RLS | Notes |
 |---|---|---|---|
 | `student_exam_goals` | `student_id`, `paper_id`, `syllabus_version_id`, `target_date`, `active bool` | own-ro (set via the onboarding RPC) | One active goal in the MVP (partial unique index). The RPC rejects non-approved syllabus versions. |
-| `study_availability` | `student_id`, `weekday 0–6`, `minutes int 0–720`, `is_rest_day bool` | own | |
+| `study_availability` | `student_id`, `weekday 0–6` (0 = Sunday), `minutes 0–720`, `is_rest_day` (generated: minutes = 0) | own-ro (set via `api_save_onboarding`) | |
 | `topic_mastery` | `student_id`, `topic_id`, `alpha`, `beta`, `effective_n`, `band`, `updated_at` | own-ro | Written only by the server mastery function. |
 | `learning_events` | `student_id`, `kind` (`item_answered`,`content_viewed`,`tutor_explained`,`tutor_hint_given`,`task_completed`,…), `evidentiary bool`, `topic_id`, `ref_type`, `ref_id`, `payload jsonb` (no free text), `at` | own-ro, insert-only | Only server-graded `item_answered` events are `evidentiary = true` and feed mastery. The tutor tool may emit only non-evidentiary kinds. |
 | `study_plans` | `student_id`, `goal_id`, `active_version_id`, `status` | own-ro | |
