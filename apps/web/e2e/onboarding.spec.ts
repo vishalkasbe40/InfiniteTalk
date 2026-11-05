@@ -46,6 +46,7 @@ test.describe.serial('onboarding', () => {
     const email = newEmail('onboard-zero');
     await createConfirmedStudent(email);
     await logIn(page, email);
+    await expect(page).toHaveURL(/\/dashboard$/); // wait for the log-in to finish
     await page.goto('/onboarding');
     await page.getByLabel(/General Studies Paper I \(sample data\)/).check();
     await page
