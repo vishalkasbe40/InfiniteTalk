@@ -86,6 +86,9 @@ test.describe.serial('admin area', () => {
     await nav.getByRole('link', { name: 'Two-step security' }).click();
     await expect(page.getByTestId('authenticator-count')).toHaveText('1 authenticator set up.');
     await page.getByRole('button', { name: 'Set up my authenticator app' }).click();
+    // Wait for either the new key or an error, then require that it was not an error.
+    await expect(page.getByTestId('totp-secret').or(formAlert(page))).toBeVisible();
+    await expect(formAlert(page)).toHaveCount(0);
     const backup = (await page.getByTestId('totp-secret').textContent())!.trim();
     expect(backup).not.toBe(secret);
     await page.getByLabel(/6-digit code/).fill(totp(backup));

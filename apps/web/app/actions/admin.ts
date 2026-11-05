@@ -1,5 +1,6 @@
 'use server';
 
+import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
@@ -44,7 +45,8 @@ export async function startTotpEnrolment(): Promise<MfaState> {
   }
   const { data, error } = await supabase.auth.mfa.enroll({
     factorType: 'totp',
-    friendlyName: `Authenticator ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+    // Supabase requires unique names per user; a random suffix keeps quick backups from clashing.
+    friendlyName: `Authenticator ${new Date().toISOString().slice(0, 10)} #${randomUUID().slice(0, 6)}`,
   });
   if (error || !data)
     return { status: 'error', message: 'Could not start the set-up. Please try again.' };
