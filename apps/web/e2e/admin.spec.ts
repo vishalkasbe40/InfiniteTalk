@@ -37,7 +37,7 @@ test.describe.serial('admin area', () => {
     await expect(page.getByRole('img', { name: /QR code/ })).toBeVisible();
     await page.getByLabel(/6-digit code/).fill('000000');
     await page.getByRole('button', { name: 'Confirm and continue' }).click();
-    await expect(page.getByRole('alert')).toContainText('That code did not work');
+    await expect(page.locator('p[role="alert"]')).toContainText('That code did not work');
     await page.getByLabel(/6-digit code/).fill(totp(secret));
     await page.getByRole('button', { name: 'Confirm and continue' }).click();
     await expect(page).toHaveURL(/\/admin$/);
