@@ -9,7 +9,8 @@ describe('beta_invites', () => {
     await actAsService(db());
     await db().query("insert into public.beta_invites (email) values ('invited@example.test')");
     await actAs(db(), a);
-    await expectSqlError(db(), 'select * from public.beta_invites');
+    // Admins can read invites (review: admin screens), so students get an empty result, not an error.
+    expect((await db().query('select * from public.beta_invites')).rowCount).toBe(0);
     await expectSqlError(
       db(),
       "insert into public.beta_invites (email) values ('me@example.test')",

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { expect, type Page } from '@playwright/test';
 
@@ -89,4 +89,32 @@ export async function logIn(page: Page, email: string, password = PASSWORD) {
   await form.getByLabel('Email').fill(email);
   await form.getByLabel('Password').fill(password);
   await form.getByRole('button', { name: 'Log in' }).click();
+}
+
+/** RFC 6238 TOTP (SHA-1, 30 s, 6 digits), as an authenticator app computes it. Test-only. */
+export function totp(base32Secret: string, now = Date.now()): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (const ch of base32Secret.replace(/=+$/, '').toUpperCase()) {
+    const v = alphabet.indexOf(ch);
+    if (v >= 0) bits += v.toString(2).padStart(5, '0');
+  }
+  const key = Buffer.from((bits.match(/.{8}/g) ?? []).map((b) => parseInt(b, 2)));
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(now / 1000 / 30)));
+  const hmac = createHmac('sha1', key).update(counter).digest();
+  const offset = hmac[hmac.length - 1]! & 0xf;
+  const code = (hmac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
+  return code.toString().padStart(6, '0');
+}
+
+/** Wait until a fresh 30-second TOTP window starts (codes may not be reused). */
+export async function nextTotpWindow() {
+  const ms = 30_000 - (Date.now() % 30_000) + 1_000;
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+export async function makeAdmin(userId: string) {
+  const { error } = await admin.from('user_roles').insert({ user_id: userId, role: 'admin' });
+  expect(error).toBeNull();
 }

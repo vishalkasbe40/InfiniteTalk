@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { signOut } from '@/app/actions/auth';
 import { requireStudent } from '@/lib/auth/guard';
+import { isStaff } from '@/lib/auth/staff';
 import { loadStudentGoal } from '@/lib/onboarding/data';
 import { daysUntil, formatMinutes, todayInIndia } from '@/lib/onboarding/schema';
 
@@ -17,13 +18,18 @@ const dateFmt = new Intl.DateTimeFormat('en-IN', {
 export default async function DashboardPage() {
   // Signed in + current consents, or redirect (review 0001 #8, review 0003 #13).
   const { supabase } = await requireStudent('/dashboard');
-  const goal = await loadStudentGoal(supabase);
+  const [goal, staff] = await Promise.all([loadStudentGoal(supabase), isStaff(supabase)]);
 
   return (
     <main>
       <p className="brand">ExamSaathi</p>
       <h1>Welcome!</h1>
       {goal ? <GoalSummary goal={goal} /> : <FirstRun />}
+      {staff && (
+        <p>
+          <Link href="/admin">Admin area</Link>
+        </p>
+      )}
       <form action={signOut}>
         <button type="submit" className="btn btn-secondary">
           Log out

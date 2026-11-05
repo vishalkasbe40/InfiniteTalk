@@ -11,6 +11,7 @@ describe('hasRecentEmailLinkAuth', () => {
 
   it('rejects password sessions, old links, future timestamps and missing claims', () => {
     expect(hasRecentEmailLinkAuth([{ method: 'password', timestamp: now }], now)).toBe(false);
+    expect(hasRecentEmailLinkAuth([{ method: 'totp', timestamp: now }], now)).toBe(false);
     expect(hasRecentEmailLinkAuth([{ method: 'otp', timestamp: now - 3600 }], now)).toBe(false);
     expect(hasRecentEmailLinkAuth([{ method: 'otp', timestamp: now + 60 }], now)).toBe(false);
     expect(hasRecentEmailLinkAuth(['otp'], now)).toBe(false);

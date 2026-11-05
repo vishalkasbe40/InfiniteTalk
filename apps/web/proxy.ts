@@ -5,7 +5,7 @@ import { sessionCookieOptions } from '@/lib/supabase/cookie-options';
 
 // Paths that need a signed-in user. Server actions and pages under them ALSO check the user
 // themselves; this redirect is a convenience, not the security boundary (Next.js data-security guide).
-const PROTECTED_PREFIXES = ['/dashboard', '/consent', '/account', '/onboarding'];
+const PROTECTED_PREFIXES = ['/dashboard', '/consent', '/account', '/onboarding', '/admin'];
 
 export async function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');

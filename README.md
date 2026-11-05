@@ -23,11 +23,24 @@ Copy `.env.example` to `apps/web/.env.local` and fill in the values from `supaba
 staging project). End-to-end tests (`apps/web/e2e`, Playwright) need a running Supabase stack;
 CI runs them in the `supabase-stack` job.
 
+## Becoming the first admin (founder, one time)
+1. In the Supabase dashboard: **Table Editor → `beta_invites` → Insert row**, enter your own email, save.
+2. Open the app's `/signup` page, sign up with that email, click the link in the email, choose a
+   password and accept the documents.
+3. In the Supabase dashboard: **SQL Editor → New query**, paste the line below with your email, and
+   press **Run** (this is recorded in the activity log automatically):
+   ```sql
+   insert into public.user_roles (user_id, role)
+   select id, 'admin' from auth.users where lower(email) = lower('you@example.com');
+   ```
+4. In the app, open **Admin area** on your dashboard. The first time, it asks you to set up an
+   authenticator app (Google Authenticator, Microsoft Authenticator, …): scan the QR code and type
+   the 6-digit code. After that, every admin log-in asks for a fresh code.
+
 ## Inviting beta students (founder)
-Sign-up is invite-only. Until the admin screens exist, add invitations in the Supabase dashboard:
-**Table Editor → `beta_invites` → Insert row**, type the student's email (any capitalisation),
-optionally a note, and save. The student can then create an account at `/signup` with that email.
-Each invitation works once.
+In the app: **Admin area → Invitations**, type the student's email (and an optional note), press
+**Add invitation**, then tell the student to sign up at `/signup` with that email. Each invitation
+works once; unused ones can be cancelled. Every add/cancel appears in **Activity log**.
 
 ## Exam and syllabus data (founder / content reviewer)
 Local development and CI use `supabase/seed.sql`: clearly labelled **sample data**, not the official

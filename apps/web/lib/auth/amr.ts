@@ -1,4 +1,8 @@
 /** Authentication-method entries from the Supabase JWT `amr` claim. */
+// Only methods that prove control of the inbox. Not 'password' or 'totp' (an authenticator code
+// proves the second factor, not the inbox).
+const EMAIL_LINK_METHODS = new Set(['otp', 'magiclink', 'recovery', 'email/signup', 'invite']);
+
 export type AmrEntry = { method: string; timestamp: number } | string;
 
 /**
@@ -14,8 +18,7 @@ export function hasRecentEmailLinkAuth(
   return (amr ?? []).some(
     (e) =>
       typeof e === 'object' &&
-      e.method !== 'password' &&
-      e.method !== 'anonymous' &&
+      EMAIL_LINK_METHODS.has(e.method) &&
       nowSeconds - e.timestamp >= 0 &&
       nowSeconds - e.timestamp <= maxAgeSeconds,
   );

@@ -217,3 +217,51 @@ a.btn {
 .day label {
   font-weight: 600;
 }
+
+/* ---- admin ---- */
+.admin-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 0;
+  font-weight: 600;
+}
+.admin main {
+  max-width: 60rem;
+}
+.table-wrap {
+  overflow-x: auto;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+}
+th,
+td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+  vertical-align: top;
+}
+.link-button {
+  font: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 0;
+}
+.qr {
+  background: #fff;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}
+.steps {
+  margin: 0;
+  padding-left: 1.25rem;
+}
