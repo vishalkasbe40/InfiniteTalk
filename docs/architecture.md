@@ -174,8 +174,12 @@ from transcripts, so no extra LLM pass is needed. *Founder to confirm the 30-day
   actions, and email links use **token-hash verification** at `/auth/confirm` (works across devices).
   Session cookies are **httpOnly** (set by `@supabase/ssr` with `cookieOptions`). **Anonymous sign-ins are disabled**
   in the Supabase Auth settings (every `to authenticated` policy would otherwise match them). Sessions use httpOnly cookies via `@supabase/ssr`.
-- **Sign-up only through a server action** that checks the beta invite allowlist and CAPTCHA, creates the user, and
-  writes the three consent rows. Magic link is sign-in only (`shouldCreateUser: false`).
+- **Sign-up only through a server action** that checks the beta invite allowlist and creates a
+  password-less, unconfirmed user, then sends the confirmation email. Only the inbox owner, after
+  clicking the link (a "Continue" page that verifies the token in a POST), chooses the password and
+  gives the recorded consents (review 0003 #6). Log-in links are sign-in only (`shouldCreateUser: false`)
+  and only sent to confirmed accounts. Password changes require a session from an email link in the
+  last 15 minutes. CAPTCHA: backlog M1-15.
 - **Consent middleware:** every app route except auth and legal pages redirects to a consent screen unless the user
   has granted rows for the *current* privacy, terms and 18+ versions. This also handles re-consent when a version changes.
 - Supabase Auth rate limits are configured; email confirmation is required; sign-up, sign-in and reset responses

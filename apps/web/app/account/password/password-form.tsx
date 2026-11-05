@@ -11,7 +11,7 @@ export function PasswordForm() {
   return (
     <form action={action} className="stack" aria-label="Choose a new password">
       <label>
-        New password (at least 8 characters)
+        Password (at least 8 characters)
         <input
           type="password"
           name="password"
@@ -33,7 +33,7 @@ export function PasswordForm() {
         />
       </label>
       <FormMessage state={state} />
-      <SubmitButton pendingText="Saving…">Save new password</SubmitButton>
+      <SubmitButton pendingText="Saving…">Save password</SubmitButton>
     </form>
   );
 }

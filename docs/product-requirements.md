@@ -81,8 +81,10 @@ These follow `CLAUDE.md` §4, plus decisions made here:
 
 1. **Sign up.** An invited student enters an email and password, confirms they are 18+, and accepts
    the privacy notice and terms (versions recorded).
-   *AC:* no account is created without all three (sign-up runs in a server action; magic link can't create accounts);
-   consent rows store version + timestamp; the app is blocked until current consent versions are granted.
+   *AC:* sign-up requires an invitation and the 18+ confirmation; the password and the recorded consents
+   (privacy, terms, 18+) are given by the inbox owner after confirming the email (review 0003 #6);
+   no account is usable without all three; consent rows store version + timestamp; the app is blocked
+   until current consent versions are granted; log-in links can't create accounts.
 2. **Onboard (≤ 6 screens, ≤ 3 minutes).** Exam → paper → language → target date →
    weekly hours → rest days. Every question shows a one-line "why we ask".
    *AC:* no education/eligibility data is requested in the MVP. Eligibility gets a static

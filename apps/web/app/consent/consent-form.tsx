@@ -8,29 +8,43 @@ import { SubmitButton } from '@/components/submit-button';
 import { idle } from '@/lib/auth/form-state';
 import type { RequiredConsent } from '@/lib/auth/consent';
 
-const LABELS: Record<RequiredConsent, React.ReactNode> = {
-  age_18_plus: 'I confirm that I am 18 years old or older.',
-  privacy_notice: (
-    <>
-      I have read the updated{' '}
-      <Link href="/privacy" target="_blank">
-        privacy notice
-      </Link>
-      .
-    </>
-  ),
-  terms: (
-    <>
-      I accept the updated{' '}
-      <Link href="/terms" target="_blank">
-        terms of use
-      </Link>
-      .
-    </>
-  ),
-};
+function label(kind: RequiredConsent, firstTime: boolean): React.ReactNode {
+  const updated = firstTime ? '' : 'updated ';
+  switch (kind) {
+    case 'age_18_plus':
+      return 'I confirm that I am 18 years old or older.';
+    case 'privacy_notice':
+      return (
+        <>
+          I have read the {updated}
+          <Link href="/privacy" target="_blank">
+            privacy notice
+          </Link>
+          .
+        </>
+      );
+    case 'terms':
+      return (
+        <>
+          I accept the {updated}
+          <Link href="/terms" target="_blank">
+            terms of use
+          </Link>
+          .
+        </>
+      );
+  }
+}
 
-export function ConsentForm({ missing, next }: { missing: RequiredConsent[]; next: string }) {
+export function ConsentForm({
+  missing,
+  next,
+  firstTime,
+}: {
+  missing: RequiredConsent[];
+  next: string;
+  firstTime: boolean;
+}) {
   const [state, action] = useActionState(recordConsents, idle);
   return (
     <form action={action} className="stack" aria-label="Review and accept">
@@ -38,7 +52,7 @@ export function ConsentForm({ missing, next }: { missing: RequiredConsent[]; nex
       {missing.map((kind) => (
         <label className="check" key={kind}>
           <input type="checkbox" name={kind} required />
-          <span>{LABELS[kind]}</span>
+          <span>{label(kind, firstTime)}</span>
         </label>
       ))}
       <FormMessage state={state} />

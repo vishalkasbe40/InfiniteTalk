@@ -36,3 +36,12 @@ describe('safeNextPath with percent-encoding tricks', () => {
     },
   );
 });
+
+describe('safeNextPath with dot-segment tricks (review 0003 #1)', () => {
+  it.each(['/.//evil.example/x', '/..//evil.example', '/%2e//evil.example', '/a/..//evil.example'])(
+    'rejects %j',
+    (p) => {
+      expect(safeNextPath(p)).toBe('/dashboard');
+    },
+  );
+});

@@ -15,12 +15,11 @@ const password = z
 
 const ticked = (message: string) => z.literal('on', { message });
 
+// Sign-up only takes the email (+ an 18+ gate). The password and the recorded consents are given
+// after the inbox owner clicks the confirmation link (review 0003 #6).
 export const signUpSchema = z.object({
   email,
-  password,
   age_18_plus: ticked('Please confirm that you are 18 or older.'),
-  privacy_notice: ticked('Please confirm that you have read the privacy notice.'),
-  terms: ticked('Please accept the terms of use.'),
 });
 
 export const signInSchema = z.object({ email, password: z.string().min(1).max(72) });

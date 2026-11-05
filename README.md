@@ -38,6 +38,11 @@ Each invitation works once.
   (Confirm signup, Magic link, Reset password) so email links go to `/auth/confirm`.
 - Authentication → Multi-factor: TOTP **on** (needed for admin accounts).
 - API settings: keep only `public` (and `graphql_public`) as exposed schemas; never expose `private`.
+- **Authentication → Emails → SMTP: set up a custom email sender** (e.g. a transactional email service
+  with SPF/DKIM on your domain). Supabase's built-in sender only delivers to your own team and is
+  heavily rate-limited, so students would not receive their links. Required before the beta.
+- Authentication → Rate limits: review the email and sign-in limits for the beta size.
+- Authentication → Providers → Email: turn on "Secure password change".
 
 ## Start here
 | Doc | What it covers |

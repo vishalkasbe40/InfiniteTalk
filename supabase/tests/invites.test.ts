@@ -46,3 +46,23 @@ describe('beta_invites', () => {
     expect(rows.map((r) => r.kind)).toEqual(['privacy_notice', 'terms', 'age_18_plus']);
   });
 });
+
+describe('svc_auth_email_status', () => {
+  it('reports none / unconfirmed / confirmed, for the service role only', async () => {
+    const a = await createUser(db(), 'Status@Example.test');
+    await actAsService(db());
+    const status = async (e: string) =>
+      (await db().query('select public.svc_auth_email_status($1) as s', [e])).rows[0].s;
+    expect(await status('status@example.test')).toBe('unconfirmed');
+    expect(await status('nobody@example.test')).toBe('none');
+    await db().query('reset role');
+    await db().query('update auth.users set email_confirmed_at = now() where id = $1', [a]);
+    await actAsService(db());
+    expect(await status(' STATUS@example.test ')).toBe('confirmed');
+
+    await actAs(db(), a);
+    await expectSqlError(db(), "select public.svc_auth_email_status('x@example.test')");
+    await actAsAnon(db());
+    await expectSqlError(db(), "select public.svc_auth_email_status('x@example.test')");
+  });
+});

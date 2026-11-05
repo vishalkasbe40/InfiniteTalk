@@ -1,17 +1,12 @@
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { signOut } from '@/app/actions/auth';
-import { loadMissingConsents } from '@/lib/auth/consent-server';
-import { createUserClient } from '@/lib/supabase/server';
+import { requireStudent } from '@/lib/auth/guard';
 
 export const metadata: Metadata = { title: 'Dashboard · ExamSaathi' };
 
 export default async function DashboardPage() {
-  const supabase = await createUserClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect('/login?next=/dashboard');
-  // Consent gate: the app is blocked until the current documents are accepted (review 0001 #8).
-  if ((await loadMissingConsents(supabase)).length > 0) redirect('/consent?next=/dashboard');
+  // Signed in + current consents, or redirect (review 0001 #8, review 0003 #13).
+  await requireStudent('/dashboard');
 
   return (
     <main>

@@ -1,16 +1,18 @@
 'use server';
 
+import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import { getEnv } from '@/lib/env';
-import { REQUIRED_CONSENTS } from '@/lib/auth/consent';
 import {
   currentVersions,
   loadConsentDocuments,
   loadMissingConsents,
 } from '@/lib/auth/consent-server';
 import { MESSAGES, type FormState } from '@/lib/auth/form-state';
+import { requireUser, sessionFromRecentEmailLink } from '@/lib/auth/guard';
 import { safeNextPath } from '@/lib/auth/redirects';
 import {
+  confirmParamsSchema,
   emailOnlySchema,
   firstIssue,
   newPasswordSchema,
@@ -23,14 +25,27 @@ import { createUserClient } from '@/lib/supabase/server';
 const formObject = (fd: FormData) =>
   Object.fromEntries([...fd.entries()].filter(([, v]) => typeof v === 'string'));
 
+type EmailStatus = 'none' | 'unconfirmed' | 'confirmed';
+
+async function emailStatus(email: string): Promise<EmailStatus> {
+  const { data, error } = await createAdminClient().rpc('svc_auth_email_status', {
+    p_email: email,
+  });
+  if (error) throw new Error('email status lookup failed');
+  return data as EmailStatus;
+}
+
 /**
- * Invite-only sign-up (architecture §5, review 0001 #8/#9).
- * The response is identical whether or not the email is invited or already registered.
+ * Invite-only sign-up (architecture §5; review 0003 #6/#7).
+ * Only the email is collected here. The account has NO password and NO consents until the owner
+ * of the inbox clicks the confirmation link, chooses a password and accepts the documents.
+ * So nobody who merely knows an invited address can set the password or consent for them.
+ * The response is identical for invited, uninvited and existing emails.
  */
 export async function signUp(_prev: FormState, fd: FormData): Promise<FormState> {
   const parsed = signUpSchema.safeParse(formObject(fd));
   if (!parsed.success) return { status: 'error', message: firstIssue(parsed.error) };
-  const { email, password } = parsed.data;
+  const { email } = parsed.data;
   const sent: FormState = { status: 'sent', message: MESSAGES.signUpSent };
 
   try {
@@ -41,43 +56,37 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
       .eq('email', email)
       .maybeSingle();
     if (invite.error) return { status: 'error', message: MESSAGES.unavailable };
-    if (!invite.data || invite.data.used_at) return sent;
+    if (!invite.data) return sent;
 
-    const versions = currentVersions(await loadConsentDocuments(admin));
-    if (REQUIRED_CONSENTS.some((k) => !versions[k])) {
-      return { status: 'error', message: MESSAGES.unavailable };
+    const status = await emailStatus(email);
+    if (status === 'confirmed') return sent;
+
+    let createdId: string | undefined;
+    if (status === 'none') {
+      if (invite.data.used_at) return sent;
+      const created = await admin.auth.admin.createUser({ email, email_confirm: false });
+      if (created.error && created.error.code !== 'email_exists') {
+        return { status: 'error', message: MESSAGES.unavailable };
+      }
+      createdId = created.data.user?.id;
     }
 
-    const created = await admin.auth.admin.createUser({ email, password, email_confirm: false });
-    if (created.error || !created.data.user) return sent; // e.g. already registered
-    const userId = created.data.user.id;
-
-    // Record consent before anything else; without it, the account must not exist.
-    const consent = await admin.from('consents').insert(
-      REQUIRED_CONSENTS.map((kind) => ({
-        user_id: userId,
-        kind,
-        version: versions[kind],
-        granted: true,
-      })),
-    );
-    if (consent.error) {
-      await admin.auth.admin.deleteUser(userId);
-      return { status: 'error', message: MESSAGES.unavailable };
-    }
-
-    await admin
-      .from('beta_invites')
-      .update({ used_at: new Date().toISOString(), used_by: userId })
-      .eq('id', invite.data.id)
-      .is('used_at', null);
-
-    // Send the confirmation email (template links to /auth/confirm).
-    await createAnonServerClient().auth.resend({
+    // An unconfirmed account exists: (re)send the confirmation email. Re-sending on a repeat
+    // sign-up helps a student whose first email was lost (review 0003 #7b).
+    const resent = await createAnonServerClient().auth.resend({
       type: 'signup',
       email,
-      options: { emailRedirectTo: `${getEnv().APP_BASE_URL}/dashboard` },
+      options: { emailRedirectTo: `${getEnv().APP_BASE_URL}/account/password` },
     });
+    if (resent.error) return { status: 'error', message: MESSAGES.emailFailed };
+
+    if (!invite.data.used_at) {
+      await admin
+        .from('beta_invites')
+        .update({ used_at: new Date().toISOString(), used_by: createdId ?? null })
+        .eq('id', invite.data.id)
+        .is('used_at', null);
+    }
     return sent;
   } catch {
     return { status: 'error', message: MESSAGES.unavailable };
@@ -93,14 +102,23 @@ export async function signIn(_prev: FormState, fd: FormData): Promise<FormState>
   redirect(safeNextPath(fd.get('next')));
 }
 
+/**
+ * Log-in link. Sent only to confirmed accounts: for an unconfirmed account Supabase would clear
+ * its password (review 0003 #5). Work happens after the response, so response time does not
+ * reveal whether an account exists (review 0003 #10).
+ */
 export async function sendMagicLink(_prev: FormState, fd: FormData): Promise<FormState> {
   const parsed = emailOnlySchema.safeParse(formObject(fd));
   if (!parsed.success) return { status: 'error', message: firstIssue(parsed.error) };
-  const supabase = createAnonServerClient();
-  // shouldCreateUser: false — a log-in link must never create an account (review 0001 #8).
-  await supabase.auth.signInWithOtp({
-    email: parsed.data.email,
-    options: { shouldCreateUser: false, emailRedirectTo: `${getEnv().APP_BASE_URL}/dashboard` },
+  const { email } = parsed.data;
+  const redirectTo = `${getEnv().APP_BASE_URL}/dashboard`;
+  after(async () => {
+    if ((await emailStatus(email)) !== 'confirmed') return;
+    await createAnonServerClient().auth.signInWithOtp({
+      email,
+      // Never create an account from a log-in link (review 0001 #8).
+      options: { shouldCreateUser: false, emailRedirectTo: redirectTo },
+    });
   });
   return { status: 'sent', message: MESSAGES.magicLinkSent };
 }
@@ -108,30 +126,56 @@ export async function sendMagicLink(_prev: FormState, fd: FormData): Promise<For
 export async function requestPasswordReset(_prev: FormState, fd: FormData): Promise<FormState> {
   const parsed = emailOnlySchema.safeParse(formObject(fd));
   if (!parsed.success) return { status: 'error', message: firstIssue(parsed.error) };
-  await createAnonServerClient().auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${getEnv().APP_BASE_URL}/account/password`,
+  const { email } = parsed.data;
+  const redirectTo = `${getEnv().APP_BASE_URL}/account/password`;
+  after(async () => {
+    await createAnonServerClient().auth.resetPasswordForEmail(email, { redirectTo });
   });
   return { status: 'sent', message: MESSAGES.resetSent };
 }
 
-export async function updatePassword(_prev: FormState, fd: FormData): Promise<FormState> {
+/**
+ * Second step for links in our emails. GET /auth/confirm only shows a "Continue" button; the
+ * token is used here, in a POST with Next's Origin check, so a link alone cannot log someone
+ * into another account (login CSRF) and email scanners cannot use it up (review 0003 #4).
+ */
+export async function confirmEmailLink(fd: FormData): Promise<void> {
+  const parsed = confirmParamsSchema.safeParse(formObject(fd));
+  if (!parsed.success) redirect('/login?error=link');
   const supabase = await createUserClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect('/login');
+  const { error } = await supabase.auth.verifyOtp({
+    type: parsed.data.type,
+    token_hash: parsed.data.token_hash,
+  });
+  if (error) redirect('/login?error=link');
+  const fallback = parsed.data.type === 'recovery' ? '/account/password' : '/dashboard';
+  redirect(safeNextPath(parsed.data.next, fallback));
+}
+
+/** Only allowed shortly after arriving from an email link (review 0003 #13). */
+export async function updatePassword(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { supabase } = await requireUser('/account/password');
+  if (!(await sessionFromRecentEmailLink(supabase))) {
+    return { status: 'error', message: MESSAGES.needFreshLink };
+  }
   const parsed = newPasswordSchema.safeParse(formObject(fd));
   if (!parsed.success) return { status: 'error', message: firstIssue(parsed.error) };
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
-  if (error)
-    return { status: 'error', message: 'Could not update your password. Please try again.' };
+  if (error) {
+    return {
+      status: 'error',
+      message:
+        error.code === 'weak_password'
+          ? 'That password is too easy to guess. Please choose a longer or less common one.'
+          : 'Could not save your password. Please try again.',
+    };
+  }
   redirect('/dashboard');
 }
 
-/** Re-consent for current document versions. Versions come from the server, never the form. */
+/** Consent for current document versions. Versions come from the server, never the form. */
 export async function recordConsents(_prev: FormState, fd: FormData): Promise<FormState> {
-  const supabase = await createUserClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect('/login');
-
+  const { supabase } = await requireUser('/consent');
   const missing = await loadMissingConsents(supabase);
   if (missing.some((kind) => fd.get(kind) !== 'on')) {
     return { status: 'error', message: 'Please tick every box to continue.' };

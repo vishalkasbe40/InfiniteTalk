@@ -28,6 +28,9 @@ export async function proxy(request: NextRequest) {
         getAll: () => request.cookies.getAll(),
         setAll: (toSet) => {
           for (const { name, value } of toSet) request.cookies.set(name, value);
+          // requestHeaders was copied before the refresh: update its Cookie header too, or pages
+          // would see the old, already-rotated tokens (review 0003 #3).
+          requestHeaders.set('cookie', request.headers.get('cookie') ?? '');
           response = NextResponse.next({ request: { headers: requestHeaders } });
           for (const { name, value, options } of toSet) response.cookies.set(name, value, options);
         },

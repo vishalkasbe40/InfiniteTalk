@@ -77,6 +77,12 @@ export async function emailCount(email: string) {
   return (await messagesTo(email)).length;
 }
 
+/** Open the email link (shows a Continue page) and press Continue. */
+export async function followEmailLink(page: Page, email: string, minCount = 1) {
+  await page.goto(await linkFromEmail(email, minCount));
+  await page.getByRole('button', { name: /^Continue/ }).click();
+}
+
 export async function logIn(page: Page, email: string, password = PASSWORD) {
   await page.goto('/login');
   const form = page.getByRole('form', { name: 'Log in with password' });

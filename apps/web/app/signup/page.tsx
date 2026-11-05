@@ -12,6 +12,10 @@ export default function SignUpPage() {
         ExamSaathi is in a small, invite-only beta. You can sign up with the email address your
         invitation was sent to.
       </p>
+      <p className="muted">
+        We will email you a link. After clicking it, you will choose your password and review our
+        privacy notice and terms.
+      </p>
       <SignUpForm />
       <div className="links">
         <Link href="/login">Already have an account? Log in</Link>

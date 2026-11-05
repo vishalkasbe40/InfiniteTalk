@@ -18,7 +18,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M1-1 | Scaffold: pnpm workspace, Next.js app, TS strict, ESLint/Prettier, Vitest, `.env.example` (Playwright moved to M1-4) | DevOps/FE | M | M0-4 (D7) | `pnpm typecheck lint test build` pass in CI | **Done (local); CI not yet run on GitHub** |
 | M1-2 | CI workflow (GitHub Actions): format, typecheck, lint, unit, DB tests (Postgres service), build, bundle secret check | DevOps | S | M1-1 | Green on PR | **Written; not yet run on GitHub** |
 | M1-3 | Supabase local setup, base migration: profiles, user_roles, `has_role()`, consents, notification_preferences, audit_log; ADR 0003 grant pattern + `private` schema | Backend | M | M1-1 | DB tests: cross-user denial, no self role grant, no direct writes on own-ro tables | **Done (local, 29 tests)** |
-| M1-4 | Auth flows: invite-only sign-up server action (allowlist, CAPTCHA, 18+/privacy/terms consent), magic-link sign-in (`shouldCreateUser:false`), reset, sign-out, PKCE, consent middleware, Supabase Auth rate limits | FE/Backend | M | M1-3 | E2E (adds Playwright): no account without consent; generic errors; consent re-prompt on version bump | **Built; E2E tests run in CI (`supabase-stack`). CAPTCHA split to M1-15** |
+| M1-4 | Auth flows: invite-only sign-up server action (allowlist, CAPTCHA, 18+/privacy/terms consent), magic-link sign-in (`shouldCreateUser:false`), reset, sign-out, PKCE, consent middleware, Supabase Auth rate limits | FE/Backend | M | M1-3 | E2E (adds Playwright): no account without consent; generic errors; consent re-prompt on version bump | **Built + review 0003 fixes; done when E2E is green on CI. CAPTCHA split to M1-15** |
 | M1-5 | i18n framework (en/mr UI strings), Devanagari font, language switcher | FE | S | M1-1 | All M1 screens switch language |
 | M1-6 | Taxonomy migration: exam_families → topics, prerequisites, sources, syllabus_versions | Backend/Content | M | M1-3 | RLS approved-read tests |
 | M1-7 | Admin shell: role + `aal2` gated layout and actions, TOTP enrolment, first-admin bootstrap script, audit-logged actions | FE/Backend | M | M1-3 | Non-admin and `aal1` admin denied (DB tests + E2E); audit rows written |
@@ -30,7 +30,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M1-13 | CI job running the DB suite on a real `supabase start` stack (no shim) + one GoTrue sign-up and PostgREST RLS smoke test (ADR 0004 mitigation, brought forward by review 0002) | DevOps | M | M1-3 | Must pass before M1-4 is deployed to staging | **Written; first run on PR #1** |
 | M1-14 | Service-role client module with `import 'server-only'` | Backend | S | M1-4 | Part of M1-4 | **Done** (`apps/web/lib/supabase/admin.ts`) |
 | M1-15 | CAPTCHA (Turnstile) on sign-up/log-in/reset (deferred from M1-4: invite allowlist already blocks mass sign-up; needs founder keys) | FE/Backend | S | M1-4 | Required before public sign-up; recommended before beta |
-| M1-16 | Per-user/IP rate limits on auth server actions; forward client IP so Supabase's per-IP auth limits don't throttle all users behind our server | Backend | M | M1-4 | Before beta (M5 gate) |
+| M1-16 | Per-user/IP rate limits on auth server actions; forward client IP so Supabase's per-IP auth limits don't throttle all users behind our server (trust the forwarded header only with a secret, review 0003 #9) | Backend | M | M1-4 | Before beta (M5 gate) |
 
 ## Milestone 2 — Diagnostic and plan (≈ 3 weeks)
 | ID | Task | Owner | Size | Depends |
@@ -79,6 +79,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M5-8 | **Gate:** email reminders have one-click unsubscribe + `List-Unsubscribe`; opt-out E2E test | Backend | S |
 | M5-9 | **Gate:** DB policy test matrix covers every user-linked table and every exposed function; deletion job E2E test | QA | M |
 | M5-10 | Retention cron jobs per DM §8a, including an audited, owner-only purge path for `audit_log`/`consents` once counsel decides R1 (review 0002 #8) | Backend | S |
+| M5-11 | **Gate:** custom SMTP sender (SPF/DKIM) on the hosted project; hosted auth rate limits reviewed (review 0003 #8) | Founder/DevOps | S |
 | M5-5 | Privacy notice and terms drafts for **counsel review** | Founder/Legal | — |
 | M5-6 | Accessibility + low-end Android manual pass | QA/FE | S |
 | M5-7 | Beta onboarding of 20–50 users (founder approval to deploy) | Founder | — |

@@ -199,7 +199,9 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+# ExamSaathi: raised for the local stack only so the E2E suite (several emails) is not throttled.
+# The hosted project's limits are set separately (README "Hosted Supabase project settings").
+email_sent = 100
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
