@@ -23,6 +23,12 @@ client instead, RLS is bypassed and every handler becomes a privilege boundary.
    - set `search_path = ''` and fully qualify every object;
    - validate argument ranges and the ownership of every referenced id.
 4. Each exposed wrapper has DB policy tests (ADR 0004) for: anon denied, cross-user ids rejected, forged arguments rejected.
+5. **Amendment (2026-11-05, review 0004):** a small, self-contained write may live directly in a
+   `public.api_*` SECURITY DEFINER function (as `api_record_consent` and `api_save_onboarding` do)
+   instead of a `private` function plus wrapper, provided points 3–4 hold. Every student write
+   function except `api_record_consent` must call `private.assert_active_student()` first, which
+   requires a signed-in, non-deleted user with current consents. This mirrors the app's
+   `requireStudent()`, so calling the API directly cannot skip the consent gate.
 
 ## Consequences
 - Slightly more SQL to write. In return, the security boundary sits in one reviewable place, and

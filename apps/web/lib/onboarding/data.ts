@@ -16,11 +16,19 @@ interface PaperRow {
 }
 
 /** Approved exam papers a student can choose (RLS also hides anything unapproved). */
+// The paper AND its stage, exam and family must be approved (review 0004 #2). `!inner` drops
+// papers whose parents are missing or filtered out. The save RPC re-checks all of this and also
+// requires an approved, in-effect syllabus version.
 export async function loadPaperOptions(supabase: SupabaseClient): Promise<PaperOption[]> {
   const { data, error } = await supabase
     .from('papers')
-    .select('id, name_en, exam_stages(name_en, exams(name_en, exam_families(name_en)))')
+    .select(
+      'id, name_en, exam_stages!inner(name_en, status, exams!inner(name_en, status, exam_families!inner(name_en, status)))',
+    )
     .eq('status', 'approved')
+    .eq('exam_stages.status', 'approved')
+    .eq('exam_stages.exams.status', 'approved')
+    .eq('exam_stages.exams.exam_families.status', 'approved')
     .order('name_en');
   if (error) throw new Error('could not load exam papers');
   return (data as unknown as PaperRow[]).map((p) => ({

@@ -2,16 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requireStudent } from '@/lib/auth/guard';
 import { loadPaperOptions, loadStudentGoal } from '@/lib/onboarding/data';
-import { todayInIndia } from '@/lib/onboarding/schema';
+import { addDays, maxTargetDate, todayInIndia } from '@/lib/onboarding/schema';
 import { OnboardingForm } from './onboarding-form';
 
 export const metadata: Metadata = { title: 'Your preparation · ExamSaathi' };
-
-function addDays(date: string, days: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 export default async function OnboardingPage() {
   const { supabase } = await requireStudent('/onboarding');
@@ -32,7 +26,7 @@ export default async function OnboardingPage() {
           papers={papers}
           goal={goal}
           minDate={addDays(today, 1)}
-          maxDate={addDays(today, 3 * 365)}
+          maxDate={maxTargetDate(today)}
         />
       )}
     </main>

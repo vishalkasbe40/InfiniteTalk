@@ -34,10 +34,21 @@ const minutes = z.coerce
     'Please choose a listed option.',
   );
 
+export function addDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Latest allowed target date: 3 calendar years ahead (same rule as the database). */
+export function maxTargetDate(today: string): string {
+  const d = new Date(`${today}T00:00:00Z`);
+  d.setUTCFullYear(d.getUTCFullYear() + 3);
+  return d.toISOString().slice(0, 10);
+}
+
 export function onboardingSchema(today: string) {
-  const max = new Date(`${today}T00:00:00Z`);
-  max.setUTCFullYear(max.getUTCFullYear() + 3);
-  const maxDate = max.toISOString().slice(0, 10);
+  const maxDate = maxTargetDate(today);
   return z
     .object({
       paper_id: z.uuid({ message: 'Please choose your exam.' }),

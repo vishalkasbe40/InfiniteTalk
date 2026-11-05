@@ -1,5 +1,8 @@
 export type FormState =
-  { status: 'idle' } | { status: 'error'; message: string } | { status: 'sent'; message: string };
+  | { status: 'idle' }
+  // `values` lets a form re-fill what the user typed: React resets forms after every submit.
+  | { status: 'error'; message: string; values?: Record<string, string> }
+  | { status: 'sent'; message: string };
 
 export const idle: FormState = { status: 'idle' };
 

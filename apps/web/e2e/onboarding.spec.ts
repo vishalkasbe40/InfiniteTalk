@@ -49,9 +49,8 @@ test.describe.serial('onboarding', () => {
     await expect(page).toHaveURL(/\/dashboard$/); // wait for the log-in to finish
     await page.goto('/onboarding');
     await page.getByLabel(/General Studies Paper I \(sample data\)/).check();
-    await page
-      .getByLabel('Target date')
-      .fill(new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10));
+    const target = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
+    await page.getByLabel('Target date').fill(target);
     for (const day of [
       'Monday',
       'Tuesday',
@@ -66,6 +65,10 @@ test.describe.serial('onboarding', () => {
     await page.getByRole('button', { name: 'Save and continue' }).click();
     await expect(page.locator('p[role="alert"]')).toContainText('at least 30 minutes');
     await expect(page).toHaveURL(/\/onboarding$/);
+    // The student's answers are still there after the error (review 0004 #1).
+    await expect(page.getByLabel(/General Studies Paper I \(sample data\)/)).toBeChecked();
+    await expect(page.getByLabel('Target date')).toHaveValue(target);
+    await expect(page.getByLabel('Monday')).toHaveValue('0');
   });
 
   test('onboarding requires log-in', async ({ page }) => {

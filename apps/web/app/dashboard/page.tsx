@@ -60,8 +60,10 @@ function GoalSummary({ goal }: { goal: NonNullable<Awaited<ReturnType<typeof loa
         <dd>{goal.paperLabel}</dd>
         <dt>Your target date</dt>
         <dd>
-          {dateFmt.format(new Date(`${goal.targetDate}T00:00:00Z`))} ({days}{' '}
-          {days === 1 ? 'day' : 'days'} from today)
+          {dateFmt.format(new Date(`${goal.targetDate}T00:00:00Z`))}{' '}
+          {days > 0
+            ? `(${days} ${days === 1 ? 'day' : 'days'} from today)`
+            : '(today or already passed)'}
         </dd>
         <dt>Study time</dt>
         <dd>
@@ -70,8 +72,16 @@ function GoalSummary({ goal }: { goal: NonNullable<Awaited<ReturnType<typeof loa
         <dt>Language</dt>
         <dd>{goal.language === 'mr' ? 'मराठी (Marathi)' : 'English'}</dd>
       </dl>
+      {days <= 0 && (
+        <p className="notice" role="status">
+          Your target date has arrived or passed. Would you like to set a new one? Every bit of
+          preparation still counts.
+        </p>
+      )}
       <p>
-        <Link href="/onboarding">Change these answers</Link>
+        <Link href="/onboarding">
+          {days <= 0 ? 'Set a new target date' : 'Change these answers'}
+        </Link>
       </p>
       <p className="notice">
         Next: a short diagnostic test to see where you stand, then your personal study plan. Coming

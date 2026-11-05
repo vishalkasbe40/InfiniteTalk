@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { daysUntil, formatMinutes, onboardingSchema, todayInIndia } from '../lib/onboarding/schema';
+import {
+  daysUntil,
+  formatMinutes,
+  maxTargetDate,
+  onboardingSchema,
+  todayInIndia,
+} from '../lib/onboarding/schema';
 
 const today = '2026-11-05';
 const valid = {
@@ -53,5 +59,15 @@ describe('dashboard helpers', () => {
   it('uses the India calendar date', () => {
     // 20:00 UTC on 5 Nov is already 6 Nov in India.
     expect(todayInIndia(new Date('2026-11-05T20:00:00Z'))).toBe('2026-11-06');
+  });
+});
+
+describe('target date limits', () => {
+  it('allows up to 3 calendar years ahead, like the database', () => {
+    expect(maxTargetDate('2026-11-05')).toBe('2029-11-05');
+    expect(
+      onboardingSchema('2026-11-05').safeParse({ ...valid, target_date: '2029-11-05' }).success,
+    ).toBe(true);
+    expect(daysUntil('2026-11-01', '2026-11-05')).toBe(-4);
   });
 });

@@ -98,3 +98,18 @@ export async function expectSqlError(
   expect(error, `expected "${sql}" to fail with ${code}`).toBeDefined();
   expect(error?.code).toBe(code);
 }
+
+/** Record granted consent for the latest published version of each required document. */
+export async function consentAll(db: pg.Client, userId: string) {
+  await db.query('reset role');
+  await db.query(
+    `insert into public.consents (user_id, kind, version, granted)
+     select $1, d.kind, d.version, true
+     from (
+       select distinct on (kind) kind, version from public.consent_documents
+       where kind in ('privacy_notice', 'terms', 'age_18_plus')
+       order by kind, published_at desc
+     ) d`,
+    [userId],
+  );
+}

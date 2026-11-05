@@ -210,3 +210,10 @@ a.btn {
 .facts dd {
   margin: 0;
 }
+.day {
+  display: grid;
+  gap: 0.35rem;
+}
+.day label {
+  font-weight: 600;
+}

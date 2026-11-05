@@ -22,7 +22,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M1-5 | i18n framework (en/mr UI strings), Devanagari font, language switcher | FE | S | M1-1 | All M1 screens switch language |
 | M1-6 | Taxonomy migration: exam_families → topics, prerequisites, sources, syllabus_versions | Backend/Content | M | M1-3 | RLS approved-read tests | **Done** (migration `20261105000200`; approved-read RLS; prerequisite cycle check) |
 | M1-7 | Admin shell: role + `aal2` gated layout and actions, TOTP enrolment, first-admin bootstrap script, audit-logged actions | FE/Backend | M | M1-3 | Non-admin and `aal1` admin denied (DB tests + E2E); audit rows written |
-| M1-8 | Admin CRUD: exams, syllabus versions, subjects, topics, sources | FE | M | M1-6, M1-7 | Status workflow enforced |
+| M1-8 | Admin CRUD: exams, syllabus versions, subjects, topics, sources (audited RPCs; enforce topic `weight_note`; lock during prerequisite edits, review 0004 #11) | FE | M | M1-6, M1-7 | Status workflow enforced |
 | M1-9 | Onboarding (≤ 6 steps): paper, language, target date, weekly minutes, rest days | FE | M | M1-4, M1-6 | ≤ 3 min; "why we ask" on each step | **Done**: one page, 4 questions with "why we ask"; `api_save_onboarding` RPC |
 | M1-10 | Student dashboard first-run state → "Start diagnostic" | FE | S | M1-9 | Loading/empty/error states | **Done**: first-run card → onboarding; goal summary afterwards |
 | M1-11 | Fictional seed: GS-I taxonomy skeleton marked `[FICTIONAL SEED]` | Content | S | M1-6 | No real personal data | **Done**: `supabase/seed.sql`, labelled "(sample data)", no official facts |
@@ -31,10 +31,12 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M1-14 | Service-role client module with `import 'server-only'` | Backend | S | M1-4 | Part of M1-4 | **Done** (`apps/web/lib/supabase/admin.ts`) |
 | M1-15 | CAPTCHA (Turnstile) on sign-up/log-in/reset (deferred from M1-4: invite allowlist already blocks mass sign-up; needs founder keys) | FE/Backend | S | M1-4 | Required before public sign-up; recommended before beta |
 | M1-16 | Per-user/IP rate limits on auth server actions; forward client IP so Supabase's per-IP auth limits don't throttle all users behind our server (trust the forwarded header only with a secret, review 0003 #9) | Backend | M | M1-4 | Before beta (M5 gate) |
+| M1-17 | Eligibility notice links to an approved `official_notification` source for the chosen exam family (no hard-coded URLs) | FE/Content | S | M1-8 | review 0004 #10 |
 
 ## Milestone 2 — Diagnostic and plan (≈ 3 weeks)
 | ID | Task | Owner | Size | Depends |
 |---|---|---|---|---|
+| M2-0 | **Rule:** every student content query (diagnostic, topics, practice, tutor retrieval) starts from the pinned `student_exam_goals.syllabus_version_id`, never from rows that are merely `approved` (review 0004 #4) | Architect | S | — |
 | M2-1 | Questions + question_answers + attempts schema, `reveal_answer()`, submit function | Backend | L | M1 |
 | M2-2 | Admin question editor with metadata, review status, PYQ verification rules | FE/Content | M | M2-1 |
 | M2-3 | Content: first ~120 reviewed GS-I MCQs (source register filled) | Content/Founder | L | M2-2, D6 |
@@ -43,7 +45,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M2-6 | `domain/mastery` Beta estimator + bands + tests; `topic_mastery` writer | AI/Learning | M | M2-1 |
 | M2-7 | Baseline screen (bands, "not enough evidence", explanation) | FE | S | M2-6 |
 | M2-8 | `domain/planner.generatePlan` + feasibility options + property tests (never exceeds availability) | AI/Learning | L | M2-6 |
-| M2-9 | Plan versions/tasks schema; review, edit and accept UI | Backend/FE | M | M2-8 |
+| M2-9 | Plan versions/tasks schema; review, edit and accept UI; each plan version snapshots the goal + weekly availability it was built from (review 0004 #8) | Backend/FE | M | M2-8 |
 | M2-10 | QA: E2E diagnostic → plan; network payload test for answer-key leakage; server timer/auto-submit test | QA | M | M2-5, M2-9 |
 
 ## Milestone 3 — Learning loop (≈ 3–4 weeks)

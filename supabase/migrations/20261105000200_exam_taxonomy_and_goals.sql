@@ -9,6 +9,7 @@
 --
 -- ROLLBACK (manual, local or staging only):
 --   drop function if exists public.api_save_onboarding(uuid, text, date, integer[]);
+--   drop function if exists private.assert_active_student();
 --   drop table if exists public.study_availability, public.student_exam_goals,
 --     public.topic_prerequisites, public.topics, public.subjects, public.syllabus_versions,
 --     public.papers, public.exam_stages, public.exams, public.exam_families, public.sources;
@@ -197,6 +198,52 @@ create policy topic_prerequisites_read on public.topic_prerequisites
   );
 
 -- ---------------------------------------------------------------------------
+-- Guard for every student write RPC (review 0004 #3): the caller must be signed in, not
+-- soft-deleted, and have granted the CURRENT version of the privacy notice, terms and 18+
+-- confirmation. Mirrors the app's requireStudent(), so calling the API directly cannot skip it.
+-- ---------------------------------------------------------------------------
+create function private.assert_active_student() returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'not authenticated' using errcode = '42501';
+  end if;
+  if exists (select 1 from public.profiles p where p.id = v_uid and p.deleted_at is not null) then
+    raise exception 'account is deleted' using errcode = '42501';
+  end if;
+  if exists (
+    select 1
+    from unnest(array['privacy_notice', 'terms', 'age_18_plus']::public.consent_kind[]) as k(kind)
+    where not coalesce((
+      select c.granted
+      from public.consents c
+      where c.user_id = v_uid
+        and c.kind = k.kind
+        and c.version = (
+          select d.version from public.consent_documents d
+          where d.kind = k.kind
+          order by d.published_at desc
+          limit 1
+        )
+      order by c.at desc
+      limit 1
+    ), false)
+  ) then
+    raise exception 'current consent required' using errcode = '42501';
+  end if;
+  return v_uid;
+end;
+$$;
+
+revoke all on function private.assert_active_student() from public;
+
+-- ---------------------------------------------------------------------------
 -- Student goal and weekly availability (own-read; written only via the RPC)
 -- ---------------------------------------------------------------------------
 create table public.student_exam_goals (
@@ -234,6 +281,7 @@ create policy study_availability_select_own on public.study_availability
  * Saves the onboarding answers for the CALLER (never another user):
  * goal paper, study language, target date and minutes per weekday (index 0 = Sunday).
  * Replaces the previous active goal (history is kept as inactive rows).
+ * Dates are judged in India time (Asia/Kolkata), matching the app (review 0004 #6).
  */
 create function public.api_save_onboarding(
   p_paper_id uuid,
@@ -247,22 +295,21 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_uid uuid := auth.uid();
+  v_uid uuid := private.assert_active_student();
+  v_today date := (now() at time zone 'Asia/Kolkata')::date;
   v_syllabus uuid;
   v_goal uuid;
   i integer;
 begin
-  if v_uid is null then
-    raise exception 'not authenticated' using errcode = '42501';
-  end if;
   if p_language is null or p_language not in ('en', 'mr') then
     raise exception 'invalid language' using errcode = '22023';
   end if;
-  if p_target_date is null or p_target_date <= current_date
-     or p_target_date > current_date + interval '3 years' then
+  if p_target_date is null or p_target_date <= v_today
+     or p_target_date > v_today + interval '3 years' then
     raise exception 'target date must be in the future and within 3 years' using errcode = '22023';
   end if;
-  if p_minutes is null or cardinality(p_minutes) <> 7 or array_ndims(p_minutes) <> 1 then
+  if p_minutes is null or cardinality(p_minutes) <> 7 or array_ndims(p_minutes) <> 1
+     or array_lower(p_minutes, 1) <> 1 then
     raise exception 'availability must have 7 days' using errcode = '22023';
   end if;
   for i in 1..7 loop
@@ -274,19 +321,29 @@ begin
     raise exception 'at least 30 minutes per week are needed' using errcode = '22023';
   end if;
 
-  -- The paper must be approved, and so must the syllabus version we pin the student to.
+  -- The paper, every parent (stage, exam, family) and the pinned syllabus version must all be
+  -- approved (review 0004 #2).
   select sv.id into v_syllabus
   from public.papers p
+  join public.exam_stages s on s.id = p.stage_id
+  join public.exams e on e.id = s.exam_id
+  join public.exam_families f on f.id = e.family_id
   join public.syllabus_versions sv on sv.paper_id = p.id
   where p.id = p_paper_id
     and p.status = 'approved'
+    and s.status = 'approved'
+    and e.status = 'approved'
+    and f.status = 'approved'
     and sv.status = 'approved'
-    and sv.effective_from <= current_date
+    and sv.effective_from <= v_today
   order by sv.effective_from desc, sv.created_at desc
   limit 1;
   if v_syllabus is null then
     raise exception 'this exam paper is not available' using errcode = '22023';
   end if;
+
+  -- Serialise saves by the same student (two tabs) so they queue instead of colliding.
+  perform 1 from public.profiles where id = v_uid for update;
 
   update public.student_exam_goals set active = false where student_id = v_uid and active;
   insert into public.student_exam_goals (student_id, paper_id, syllabus_version_id, target_date)
