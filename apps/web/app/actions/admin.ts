@@ -17,19 +17,34 @@ const codeSchema = z
   .trim()
   .regex(/^\d{6}$/, 'Please enter the 6-digit code from your app.');
 
-/** Step 1 of setup: create a new authenticator factor and show its QR code. */
+/**
+ * Step 1 of setup: create a new authenticator factor and show its QR code.
+ * - First authenticator: only from a session started by an email link in the last 15 minutes, so a
+ *   stolen password alone cannot register an attacker's phone (review 0005 #3).
+ * - Backup authenticator: only with a fresh code from the existing one.
+ */
 export async function startTotpEnrolment(): Promise<MfaState> {
-  const { supabase } = await requireStaffBeforeMfa('/admin/mfa');
-  // Remove abandoned, never-verified factors first so they don't pile up.
+  const { supabase, freshTotp, emailLinkRecent } = await requireStaffBeforeMfa('/admin/mfa');
   const { data: factors } = await supabase.auth.mfa.listFactors();
-  for (const f of factors?.all ?? []) {
+  const all = factors?.all ?? [];
+  const hasVerified = all.some((f) => f.factor_type === 'totp' && f.status === 'verified');
+  if (hasVerified ? !freshTotp : !emailLinkRecent) {
+    return {
+      status: 'error',
+      message: hasVerified
+        ? 'Please verify with your current authenticator first.'
+        : 'For your security, log in again with “Email me a log-in link”, then set up within 15 minutes.',
+    };
+  }
+  // Remove abandoned, never-verified factors first so they don't pile up.
+  for (const f of all) {
     if (f.factor_type === 'totp' && f.status === 'unverified') {
       await supabase.auth.mfa.unenroll({ factorId: f.id });
     }
   }
   const { data, error } = await supabase.auth.mfa.enroll({
     factorType: 'totp',
-    friendlyName: `ExamSaathi admin ${new Date().toISOString().slice(0, 10)}`,
+    friendlyName: `Authenticator ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
   });
   if (error || !data)
     return { status: 'error', message: 'Could not start the set-up. Please try again.' };
@@ -37,8 +52,9 @@ export async function startTotpEnrolment(): Promise<MfaState> {
 }
 
 /**
- * Step 2 of setup (form carries the new factor id), or a normal sign-in (no id: use the user's
- * verified authenticator). Any id from the form must be one of the signed-in user's own factors.
+ * Step 2 of setup (form carries the new factor id), or a normal sign-in (no id: use a verified
+ * authenticator). Any id from the form must be one of the signed-in user's own factors.
+ * Failed codes are counted per user: 5 in 15 minutes locks verification (review 0005 #6).
  */
 export async function verifyTotp(_prev: MfaState, fd: FormData): Promise<MfaState> {
   const { supabase } = await requireStaffBeforeMfa('/admin/mfa');
@@ -46,22 +62,34 @@ export async function verifyTotp(_prev: MfaState, fd: FormData): Promise<MfaStat
   if (!code.success) {
     return { status: 'error', message: code.error.issues[0]?.message ?? 'Invalid code.' };
   }
+  const guard = await supabase.rpc('api_mfa_guard');
+  if (guard.error) {
+    return {
+      status: 'error',
+      message:
+        guard.error.code === '54000'
+          ? 'Too many wrong codes. For your security, please wait 15 minutes and try again.'
+          : 'Something went wrong. Please try again.',
+    };
+  }
   const requested = fd.get('factor_id');
   const { data: factors } = await supabase.auth.mfa.listFactors();
   const own = (factors?.all ?? []).filter((f) => f.factor_type === 'totp');
-  const factorId =
-    typeof requested === 'string' && requested
-      ? own.find((f) => f.id === requested)?.id
-      : own.find((f) => f.status === 'verified')?.id;
+  const enrolling = typeof requested === 'string' && requested.length > 0;
+  const factorId = enrolling
+    ? own.find((f) => f.id === requested && f.status === 'unverified')?.id
+    : own.find((f) => f.status === 'verified')?.id;
   if (!factorId) return { status: 'error', message: 'Please start the set-up again.' };
 
   const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: code.data });
   if (error) {
+    await supabase.rpc('api_mfa_record', { p_event: 'verify_failed' });
     return {
       status: 'error',
       message: 'That code did not work. Check the time on your phone and try the newest code.',
     };
   }
+  await supabase.rpc('api_mfa_record', { p_event: enrolling ? 'enrolled' : 'verified' });
   redirect(safeNextPath(fd.get('next'), '/admin'));
 }
 
@@ -105,9 +133,20 @@ export async function addInvite(_prev: FormState, fd: FormData): Promise<FormSta
   };
 }
 
-export async function revokeInvite(fd: FormData): Promise<void> {
+export async function revokeInvite(_prev: FormState, fd: FormData): Promise<FormState> {
   const { supabase } = await requireStaff('/admin/invites');
   const id = z.uuid().safeParse(fd.get('id'));
-  if (id.success) await supabase.rpc('api_admin_revoke_invite', { p_id: id.data });
+  if (!id.success) return { status: 'error', message: 'Invalid request.' };
+  const { error } = await supabase.rpc('api_admin_revoke_invite', { p_id: id.data });
+  if (error) {
+    return {
+      status: 'error',
+      message:
+        error.code === '22023'
+          ? 'This invitation was already used or cancelled.'
+          : 'Could not cancel the invitation. Please try again.',
+    };
+  }
   revalidatePath('/admin/invites');
+  return { status: 'sent', message: 'Invitation cancelled.' };
 }

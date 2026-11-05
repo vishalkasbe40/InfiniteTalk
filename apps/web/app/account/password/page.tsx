@@ -8,8 +8,8 @@ import { PasswordForm } from './password-form';
 export const metadata: Metadata = { title: 'Choose your password · ExamSaathi' };
 
 export default async function NewPasswordPage() {
-  const { supabase } = await requireUser('/account/password');
-  if (!(await sessionFromRecentEmailLink(supabase))) {
+  await requireUser('/account/password');
+  if (!(await sessionFromRecentEmailLink())) {
     return (
       <AuthCard title="Change your password">
         <p className="notice">{MESSAGES.needFreshLink}</p>

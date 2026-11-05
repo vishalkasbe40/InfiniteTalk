@@ -265,3 +265,20 @@ td {
   margin: 0;
   padding-left: 1.25rem;
 }
+input[type='text'],
+input:not([type]) {
+  font: inherit;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--muted);
+  border-radius: 0.5rem;
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 44px;
+}
+td .link-button {
+  min-height: 44px;
+  padding: 0 0.25rem;
+}
+.msg-inline-error {
+  color: #b42318;
+}

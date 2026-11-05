@@ -155,7 +155,7 @@ export async function confirmEmailLink(fd: FormData): Promise<void> {
 /** Only allowed shortly after arriving from an email link (review 0003 #13). */
 export async function updatePassword(_prev: FormState, fd: FormData): Promise<FormState> {
   const { supabase } = await requireUser('/account/password');
-  if (!(await sessionFromRecentEmailLink(supabase))) {
+  if (!(await sessionFromRecentEmailLink())) {
     return { status: 'error', message: MESSAGES.needFreshLink };
   }
   const parsed = newPasswordSchema.safeParse(formObject(fd));

@@ -14,6 +14,10 @@ const LABELS: Record<string, string> = {
   'role.revoke': 'Role removed',
   'invite.add': 'Invitation added',
   'invite.revoke': 'Invitation cancelled',
+  'mfa.enrolled': 'Authenticator added (mfa.enrolled)',
+  'mfa.verify_failed': 'Wrong two-step code (mfa.verify_failed)',
+  'mfa.verified': 'Two-step code accepted',
+  'mfa.reset': 'Authenticators reset (runbook)',
 };
 
 export default async function AuditPage() {

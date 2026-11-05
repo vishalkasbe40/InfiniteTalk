@@ -108,7 +108,7 @@ export function totp(base32Secret: string, now = Date.now()): string {
   return code.toString().padStart(6, '0');
 }
 
-/** Wait until a fresh 30-second TOTP window starts (codes may not be reused). */
+/** Wait until a fresh 30-second TOTP window starts, so the next code differs from the last one. */
 export async function nextTotpWindow() {
   const ms = 30_000 - (Date.now() % 30_000) + 1_000;
   await new Promise((r) => setTimeout(r, ms));

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import { revokeInvite } from '@/app/actions/admin';
 import { requireStaff } from '@/lib/auth/staff';
 import { InviteForm } from './invite-form';
+import { RevokeButton } from './revoke-button';
 
 export const metadata: Metadata = { title: 'Invitations · ExamSaathi admin' };
 
@@ -50,17 +50,7 @@ export default async function InvitesPage() {
                     {i.used_at ? (
                       `Joined ${fmt.format(new Date(i.used_at))}`
                     ) : (
-                      <form action={revokeInvite}>
-                        <input type="hidden" name="id" value={i.id} />
-                        <span>Not used yet · </span>
-                        <button
-                          type="submit"
-                          className="link-button"
-                          aria-label={`Cancel invitation for ${i.email}`}
-                        >
-                          Cancel
-                        </button>
-                      </form>
+                      <RevokeButton id={i.id} email={i.email} />
                     )}
                   </td>
                 </tr>

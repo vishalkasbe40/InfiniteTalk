@@ -33,9 +33,13 @@ CI runs them in the `supabase-stack` job.
    insert into public.user_roles (user_id, role)
    select id, 'admin' from auth.users where lower(email) = lower('you@example.com');
    ```
-4. In the app, open **Admin area** on your dashboard. The first time, it asks you to set up an
+4. **Straight away** (within 15 minutes of clicking the email link in step 2; otherwise log in again
+   with "Email me a log-in link"), open **Admin area** on your dashboard. It asks you to set up an
    authenticator app (Google Authenticator, Microsoft Authenticator, …): scan the QR code and type
-   the 6-digit code. After that, every admin log-in asks for a fresh code.
+   the 6-digit code. After that, admin pages ask for a fresh code at least every 12 hours.
+5. Open **Admin → Two-step security** and add a **backup authenticator** (a second device).
+6. Turn on two-step verification for your **Supabase dashboard account** too (Account → Security).
+   Lost every device? See `docs/runbooks/admin-lost-authenticator.md`.
 
 ## Inviting beta students (founder)
 In the app: **Admin area → Invitations**, type the student's email (and an optional note), press

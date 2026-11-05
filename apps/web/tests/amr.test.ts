@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasRecentEmailLinkAuth } from '../lib/auth/amr';
+import { hasFreshTotp, hasRecentEmailLinkAuth } from '../lib/auth/amr';
 
 const now = 1_800_000_000;
 
@@ -16,5 +16,15 @@ describe('hasRecentEmailLinkAuth', () => {
     expect(hasRecentEmailLinkAuth([{ method: 'otp', timestamp: now + 60 }], now)).toBe(false);
     expect(hasRecentEmailLinkAuth(['otp'], now)).toBe(false);
     expect(hasRecentEmailLinkAuth(undefined, now)).toBe(false);
+  });
+});
+
+describe('hasFreshTotp', () => {
+  it('needs aal2 and an authenticator code from the last 12 hours', () => {
+    const amr = [{ method: 'totp', timestamp: now - 3600 }];
+    expect(hasFreshTotp('aal2', amr, now)).toBe(true);
+    expect(hasFreshTotp('aal1', amr, now)).toBe(false);
+    expect(hasFreshTotp('aal2', [{ method: 'totp', timestamp: now - 13 * 3600 }], now)).toBe(false);
+    expect(hasFreshTotp('aal2', [{ method: 'password', timestamp: now }], now)).toBe(false);
   });
 });
