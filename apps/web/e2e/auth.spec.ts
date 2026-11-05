@@ -51,7 +51,7 @@ test.describe.serial('authentication', () => {
     // Account exists with consents recorded, but cannot log in before confirming.
     expect(await userExists(email)).toBe(true);
     await logIn(page, email);
-    await expect(page.getByRole('alert')).toContainText(
+    await expect(page.locator('p[role="alert"]')).toContainText(
       'incorrect, or your email is not confirmed',
     );
 
@@ -98,7 +98,7 @@ test.describe.serial('authentication', () => {
     const email = newEmail('wrongpw');
     await createConfirmedStudent(email);
     await logIn(page, email, 'not-the-password');
-    await expect(page.getByRole('alert')).toContainText('Email or password is incorrect');
+    await expect(page.locator('p[role="alert"]')).toContainText('Email or password is incorrect');
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -142,7 +142,7 @@ test.describe.serial('authentication', () => {
   test('an invalid or reused email link is rejected', async ({ page }) => {
     await page.goto('/auth/confirm?token_hash=not-a-real-token-hash&type=email');
     await expect(page).toHaveURL(/\/login\?error=link$/);
-    await expect(page.getByRole('alert')).toContainText('invalid or has expired');
+    await expect(page.locator('p[role="alert"]')).toContainText('invalid or has expired');
   });
 
   test('log-in never redirects to another website', async ({ page }) => {
