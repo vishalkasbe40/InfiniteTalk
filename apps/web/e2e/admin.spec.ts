@@ -74,13 +74,13 @@ test.describe.serial('admin area', () => {
     await page.getByLabel(/Note/).fill('e2e batch');
     await page.getByRole('button', { name: 'Add invitation' }).click();
     await expect(page.getByRole('status')).toContainText(`Invitation added for ${invitee}`);
-    await expect(page.getByRole('cell', { name: invitee })).toBeVisible();
+    await expect(page.getByRole('cell', { name: invitee, exact: true })).toBeVisible();
     await page.getByLabel('Student’s email').fill(invitee);
     await page.getByRole('button', { name: 'Add invitation' }).click();
     await expect(formAlert(page)).toContainText('already invited');
     await expect(page.getByLabel('Student’s email')).toHaveValue(invitee);
     await page.getByRole('button', { name: `Cancel invitation for ${invitee}` }).click();
-    await expect(page.getByRole('cell', { name: invitee })).toHaveCount(0);
+    await expect(page.getByRole('cell', { name: invitee, exact: true })).toHaveCount(0);
 
     // Backup authenticator.
     await nav.getByRole('link', { name: 'Two-step security' }).click();
