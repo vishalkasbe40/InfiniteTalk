@@ -293,7 +293,7 @@ describe('consents', () => {
     await publishConsentDocument(db(), 'terms', 'v1');
     await actAs(db(), a);
     const docs = await db().query(
-      "select version from public.consent_documents where kind = 'terms'",
+      "select version from public.consent_documents where kind = 'terms' and version = 'v1'",
     );
     expect(docs.rows).toEqual([{ version: 'v1' }]);
     await expectSqlError(

@@ -170,7 +170,9 @@ from transcripts, so no extra LLM pass is needed. *Founder to confirm the 30-day
 - Re-embedding is triggered when content is approved or changed; old chunks are deactivated, not mutated.
 
 ## 5. Authentication and roles
-- Supabase Auth (email + password, magic link) with the **PKCE** flow. **Anonymous sign-ins are disabled**
+- Supabase Auth (email + password, magic link). The browser never calls Supabase: all auth runs in server
+  actions, and email links use **token-hash verification** at `/auth/confirm` (works across devices).
+  Session cookies are **httpOnly** (set by `@supabase/ssr` with `cookieOptions`). **Anonymous sign-ins are disabled**
   in the Supabase Auth settings (every `to authenticated` policy would otherwise match them). Sessions use httpOnly cookies via `@supabase/ssr`.
 - **Sign-up only through a server action** that checks the beta invite allowlist and CAPTCHA, creates the user, and
   writes the three consent rows. Magic link is sign-in only (`shouldCreateUser: false`).
@@ -227,7 +229,7 @@ A runbook covers restore drills before the beta. Migrations are forward-only SQL
 manual rollback note in each file header.
 
 Planned env vars (`.env.example` will be added with the app scaffold in M1):
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (all server-only: the browser never calls Supabase),
 `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL_SMALL`, `AI_MODEL_STANDARD`, `AI_MONTHLY_BUDGET_INR`,
 `CRON_SECRET`, `APP_BASE_URL`, `EMAIL_FROM`.
 

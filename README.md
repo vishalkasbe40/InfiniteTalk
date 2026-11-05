@@ -19,7 +19,25 @@ TEST_DATABASE_URL=postgres://postgres@localhost:5432/postgres pnpm test:db
 `pnpm test:db` creates a throwaway database on that server, applies `supabase/tests/shim/supabase-shim.sql`
 and every migration in `supabase/migrations/`, runs the policy tests, then drops the database
 ([ADR 0004](docs/decisions/0004-db-policy-testing.md)). Never point it at a real project.
-Copy `.env.example` to `apps/web/.env.local` when the Supabase integration lands (M1-4).
+Copy `.env.example` to `apps/web/.env.local` and fill in the values from `supabase start` (or the
+staging project). End-to-end tests (`apps/web/e2e`, Playwright) need a running Supabase stack;
+CI runs them in the `supabase-stack` job.
+
+## Inviting beta students (founder)
+Sign-up is invite-only. Until the admin screens exist, add invitations in the Supabase dashboard:
+**Table Editor → `beta_invites` → Insert row**, type the student's email (any capitalisation),
+optionally a note, and save. The student can then create an account at `/signup` with that email.
+Each invitation works once.
+
+## Hosted Supabase project settings (one-time, founder)
+- Authentication → Sign In / Providers: anonymous sign-ins **off**, "Allow new users to sign up" **off**,
+  email provider **on**, "Confirm email" **on**, minimum password length **8**.
+- Authentication → URL Configuration: Site URL = the app's public address; add `<site>/auth/confirm`
+  to Redirect URLs.
+- Authentication → Emails: paste the three templates from `supabase/templates/`
+  (Confirm signup, Magic link, Reset password) so email links go to `/auth/confirm`.
+- Authentication → Multi-factor: TOTP **on** (needed for admin accounts).
+- API settings: keep only `public` (and `graphql_public`) as exposed schemas; never expose `private`.
 
 ## Start here
 | Doc | What it covers |
