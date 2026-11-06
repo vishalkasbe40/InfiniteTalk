@@ -22,7 +22,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M1-5 | i18n framework (en/mr UI strings), Devanagari font, language switcher | FE | S | M1-1 | All M1 screens switch language |
 | M1-6 | Taxonomy migration: exam_families → topics, prerequisites, sources, syllabus_versions | Backend/Content | M | M1-3 | RLS approved-read tests | **Done** (migration `20261105000200`; approved-read RLS; prerequisite cycle check) |
 | M1-7 | Admin shell: role + `aal2` gated layout and actions, TOTP enrolment, first-admin bootstrap script, audit-logged actions | FE/Backend | M | M1-3 | Non-admin and `aal1` admin denied (DB tests + E2E); audit rows written | **Done**: `/admin` (role + aal2), TOTP set-up/verify at `/admin/mfa`, invitations + activity log; first admin via SQL editor (README) | Review 0005 fixed (fresh-code 12 h, first set-up via email link, backup authenticators, attempt limit, runbook). |
-| M1-8 | Admin CRUD: exams, syllabus versions, subjects, topics, sources (audited RPCs; enforce topic `weight_note`; lock during prerequisite edits, review 0004 #11) | FE | M | M1-6, M1-7 | Status workflow enforced | **Part 1 done** (invitations via audited RPCs). Content CRUD: next |
+| M1-8 | Admin CRUD: exams, syllabus versions, subjects, topics, sources (audited RPCs; enforce topic `weight_note`; lock during prerequisite edits, review 0004 #11) | FE | M | M1-6, M1-7 | Status workflow enforced | **Done**: invitations; content screens for sources + exam tree with draft → review → approve → retire (audited RPCs, parent-approved rule, weight-note rule). Topic prerequisites + subtopics UI: M2-0b |
 | M1-9 | Onboarding (≤ 6 steps): paper, language, target date, weekly minutes, rest days | FE | M | M1-4, M1-6 | ≤ 3 min; "why we ask" on each step | **Done**: one page, 4 questions with "why we ask"; `api_save_onboarding` RPC |
 | M1-10 | Student dashboard first-run state → "Start diagnostic" | FE | S | M1-9 | Loading/empty/error states | **Done**: first-run card → onboarding; goal summary afterwards |
 | M1-11 | Fictional seed: GS-I taxonomy skeleton marked `[FICTIONAL SEED]` | Content | S | M1-6 | No real personal data | **Done**: `supabase/seed.sql`, labelled "(sample data)", no official facts |
@@ -37,6 +37,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | ID | Task | Owner | Size | Depends |
 |---|---|---|---|---|
 | M2-0 | **Rule:** every student content query (diagnostic, topics, practice, tutor retrieval) starts from the pinned `student_exam_goals.syllabus_version_id`, never from rows that are merely `approved` (review 0004 #4) | Architect | S | — |
+| M2-0b | Admin UI for topic prerequisites and subtopics (DB supports both; lock during prerequisite edits) | FE/Backend | S | M1-8 |
 | M2-1 | Questions + question_answers + attempts schema, `reveal_answer()`, submit function | Backend | L | M1 |
 | M2-2 | Admin question editor with metadata, review status, PYQ verification rules | FE/Content | M | M2-1 |
 | M2-3 | Content: first ~120 reviewed GS-I MCQs (source register filled) | Content/Founder | L | M2-2, D6 |

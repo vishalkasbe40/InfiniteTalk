@@ -118,3 +118,33 @@ export async function makeAdmin(userId: string) {
   const { error } = await admin.from('user_roles').insert({ user_id: userId, role: 'admin' });
   expect(error).toBeNull();
 }
+
+/** Log in with a one-time link from the email (an "email-link" session). */
+export async function logInWithEmailLink(page: Page, email: string, previousEmails = 0) {
+  await page.goto('/login');
+  const form = page.getByRole('form', { name: 'Email me a log-in link' });
+  await form.getByLabel('Email').fill(email);
+  await form.getByRole('button', { name: 'Email me a log-in link' }).click();
+  await expect(page.getByText(/If an account exists for this email/)).toBeVisible();
+  await followEmailLink(page, email, previousEmails + 1);
+  await expect(page).toHaveURL(/\/dashboard$/);
+}
+
+/** A new admin who has set up an authenticator; the page is left on /admin. */
+export async function becomeVerifiedAdmin(
+  page: Page,
+  role: 'admin' | 'content_reviewer' = 'admin',
+) {
+  const email = newEmail(role === 'admin' ? 'admin' : 'reviewer');
+  const id = await createConfirmedStudent(email);
+  const { error } = await admin.from('user_roles').insert({ user_id: id, role });
+  expect(error).toBeNull();
+  await logInWithEmailLink(page, email);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Set up my authenticator app' }).click();
+  const secret = (await page.getByTestId('totp-secret').textContent())!.trim();
+  await page.getByLabel(/6-digit code/).fill(totp(secret));
+  await page.getByRole('button', { name: 'Confirm and continue' }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  return { email, secret };
+}

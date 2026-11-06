@@ -48,9 +48,16 @@ works once; unused ones can be cancelled. Every add/cancel appears in **Activity
 
 ## Exam and syllabus data (founder / content reviewer)
 Local development and CI use `supabase/seed.sql`: clearly labelled **sample data**, not the official
-syllabus. On the hosted project the real exam, paper and syllabus records must be entered from the
-official MPSC notification and syllabus, with a `sources` row cited, and set to `approved` only after
-review. Until the admin screens exist (M1-8), use the Table Editor. Students only ever see `approved` rows.
+syllabus. Real content is entered in the app: **Admin area → Exams and syllabus**.
+1. **Sources first:** add the official notification and the official syllabus document (title, link,
+   dates). Send each for review and approve it after checking it.
+2. Build the tree: exam group → exam → stage → paper → syllabus version → subject → topic.
+   Every new item is a **draft**. Exam facts (duration, marks, negative marking) need a cited source.
+3. **Review and approve top-down:** a child can only be approved after its parent. Only approve
+   after checking every fact against the cited source. Approved items can't be edited; retire and
+   recreate instead. Students only ever see approved items.
+4. Every create, edit and status change is in the **Activity log** (self-approvals are flagged,
+   which is expected while you are the only reviewer).
 
 ## Hosted Supabase project settings (one-time, founder)
 - Authentication → Sign In / Providers: anonymous sign-ins **off**, "Allow new users to sign up" **off**,

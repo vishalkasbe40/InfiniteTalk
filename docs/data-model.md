@@ -39,6 +39,10 @@ Legend for the **RLS** column:
 | `topic_prerequisites` | `topic_id`, `requires_topic_id` | readable when both topics are approved | Cycle check in a trigger. |
 | `sources` | `status`, `kind` (`official_notification`,`official_syllabus`,`textbook_licensed`,`original`,`other`), `title`, `publisher`, `url`, `published_on`, `retrieved_on`, `licence_note` | approved-read | The source register. `original` = written by ExamSaathi reviewers. |
 
+All §2 content tables also carry `created_by`, `approved_by`, `approved_at`. They are written only via
+`api_content_save_*` / `api_content_set_status` (staff with aal2; draft → in_review → approved → retired;
+parent must be approved first; audited, self-approval flagged).
+
 ## 3. Learning content and questions
 
 | Table | Key columns | RLS | Notes |

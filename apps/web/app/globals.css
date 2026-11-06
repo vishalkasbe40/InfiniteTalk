@@ -282,3 +282,69 @@ td .link-button {
 .msg-inline-error {
   color: #b42318;
 }
+
+/* ---- content admin ---- */
+.badge {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.badge-draft {
+  background: #eaeef2;
+  color: #24292f;
+}
+.badge-in_review {
+  background: #fff8c5;
+  color: #6b4f00;
+}
+.badge-approved {
+  background: #dafbe1;
+  color: #116329;
+}
+.badge-retired {
+  background: #ffebe9;
+  color: #82071e;
+}
+.item-list {
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.4rem;
+}
+.crumbs {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+.field label {
+  font-weight: 600;
+}
+textarea,
+input[type='number'],
+input[type='url'] {
+  font: inherit;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--muted);
+  border-radius: 0.5rem;
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 44px;
+}
+.status-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+.status-controls .why,
+.status-controls .msg {
+  flex-basis: 100%;
+}
+.fact-row {
+  display: contents;
+}

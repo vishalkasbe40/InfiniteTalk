@@ -1,23 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
   createConfirmedStudent,
-  followEmailLink,
   logIn,
+  logInWithEmailLink,
   makeAdmin,
   newEmail,
   nextTotpWindow,
   totp,
 } from './helpers';
-
-async function logInWithEmailLink(page: Page, email: string, previousEmails = 0) {
-  await page.goto('/login');
-  const form = page.getByRole('form', { name: 'Email me a log-in link' });
-  await form.getByLabel('Email').fill(email);
-  await form.getByRole('button', { name: 'Email me a log-in link' }).click();
-  await expect(page.getByText(/If an account exists for this email/)).toBeVisible();
-  await followEmailLink(page, email, previousEmails + 1);
-  await expect(page).toHaveURL(/\/dashboard$/);
-}
 
 const formAlert = (page: Page) => page.locator('p[role="alert"]');
 

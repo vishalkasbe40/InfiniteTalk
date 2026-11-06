@@ -18,6 +18,9 @@ const LABELS: Record<string, string> = {
   'mfa.verify_failed': 'Wrong two-step code (mfa.verify_failed)',
   'mfa.verified': 'Two-step code accepted',
   'mfa.reset': 'Authenticators reset (runbook)',
+  'content.create': 'Content created',
+  'content.update': 'Content edited',
+  'content.status': 'Content status changed',
 };
 
 export default async function AuditPage() {
@@ -58,6 +61,9 @@ export default async function AuditPage() {
                   <td>
                     {LABELS[e.action] ?? e.action}
                     {e.meta?.role ? ` (${String(e.meta.role)})` : ''}
+                    {e.meta?.to
+                      ? ` (${String(e.meta.from)} → ${String(e.meta.to)}${e.meta.self_approved ? ', self-approved' : ''})`
+                      : ''}
                   </td>
                   <td>
                     {e.entity_type}{' '}
