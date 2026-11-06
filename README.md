@@ -23,6 +23,10 @@ Copy `.env.example` to `apps/web/.env.local` and fill in the values from `supaba
 staging project). End-to-end tests (`apps/web/e2e`, Playwright) need a running Supabase stack;
 CI runs them in the `supabase-stack` job.
 
+## Putting it online (staging)
+Step-by-step: `docs/runbooks/staging-setup.md` (Supabase database via the **Deploy database** GitHub
+action, hosting on Vercel, connecting the two).
+
 ## Becoming the first admin (founder, one time)
 1. In the Supabase dashboard: **Table Editor → `beta_invites` → Insert row**, enter your own email, save.
 2. Open the app's `/signup` page, sign up with that email, click the link in the email, choose a

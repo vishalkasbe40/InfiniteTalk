@@ -1,0 +1,60 @@
+name: Deploy database
+
+# Applies supabase/migrations to the hosted Supabase project. Manual only: run it from the
+# GitHub "Actions" tab and type DEPLOY. Never loads supabase/seed.sql (sample data).
+# Needs repository secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, SUPABASE_PROJECT_REF
+# (see docs/runbooks/staging-setup.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY to apply database changes to your Supabase project'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-db
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: supabase
+    steps:
+      - name: Check confirmation
+        if: ${{ inputs.confirm != 'DEPLOY' }}
+        run: |
+          echo "Not deploying: you must type DEPLOY exactly." >&2
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - name: Check secrets are set
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          for v in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF; do
+            if [ -z "${!v}" ]; then echo "Missing secret: $v (see docs/runbooks/staging-setup.md)" >&2; exit 1; fi
+          done
+      - name: Link project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+      - name: Show pending changes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase db push --dry-run
+      - name: Apply changes (never includes sample data)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase db push
