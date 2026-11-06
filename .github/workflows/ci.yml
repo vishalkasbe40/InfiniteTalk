@@ -95,6 +95,12 @@ jobs:
           SUPABASE_ANON_KEY: ${{ env.ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ env.SERVICE_ROLE_KEY }}
           APP_BASE_URL: http://127.0.0.1:3000
+      - name: Show failed-page snapshots in the log
+        if: failure()
+        run: |
+          for f in $(find apps/web/test-results -name 'error-context.md' 2>/dev/null); do
+            echo "::group::$f"; cat "$f"; echo "::endgroup::"
+          done
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
