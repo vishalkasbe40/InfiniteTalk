@@ -140,7 +140,11 @@ export async function becomeVerifiedAdmin(
   const { error } = await admin.from('user_roles').insert({ user_id: id, role });
   expect(error).toBeNull();
   await logInWithEmailLink(page, email);
-  await page.goto('/admin');
+  // Go to the admin area the way a person would, and fail with the actual address if it differs.
+  await page.getByRole('link', { name: 'Admin area' }).click();
+  await expect(page, 'should be asked to set up two-step verification').toHaveURL(
+    /\/admin\/mfa\?next=%2Fadmin$/,
+  );
   await page.getByRole('button', { name: 'Set up my authenticator app' }).click();
   const secret = (await page.getByTestId('totp-secret').textContent())!.trim();
   await page.getByLabel(/6-digit code/).fill(totp(secret));
