@@ -45,7 +45,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M2-5 | Diagnostic UI: pause/resume, timer per item, confidence tap, slow-network handling | FE | M | M2-4 |
 | M2-6 | `domain/mastery` Beta estimator + bands + tests; `topic_mastery` writer | AI/Learning | M | M2-1 |
 | M2-7 | Baseline screen (bands, "not enough evidence", explanation) | FE | S | M2-6 |
-| M2-8 | `domain/planner.generatePlan` + feasibility options + property tests (never exceeds availability) | AI/Learning | L | M2-6 |
+| M2-8 | `domain/planner.generatePlan` + feasibility options + property tests (never exceeds availability, rest days free, deadline respected; PRD §6a) | AI/Learning | L | M2-6 |
 | M2-9 | Plan versions/tasks schema; review, edit and accept UI; each plan version snapshots the goal + weekly availability it was built from (review 0004 #8) | Backend/FE | M | M2-8 |
 | M2-10 | QA: E2E diagnostic → plan; network payload test for answer-key leakage; server timer/auto-submit test | QA | M | M2-5, M2-9 |
 
@@ -59,7 +59,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M3-5 | Timed mock test (server-timed, auto-submit) | FE/Backend | M | M2-1 |
 | M3-6 | `packages/ai`: provider adapter, router, metering, quota `consume_tutor_turn()` | AI | M | D4, D5 |
 | M3-7 | Retrieval: content_chunks, embeddings job, hybrid search function | AI/Backend | M | M3-1 |
-| M3-8 | Tutor tools + guardrail post-check + tutor UI (modes, citations, quota messages) | AI/FE | L | M3-6, M3-7 |
+| M3-8 | Tutor tools + guardrail post-check + tutor UI (modes, citations, quota messages); daily session from today's plan, fitted to today's minutes, level- and deadline-aware (PRD §6a) | AI/FE | L | M3-6, M3-7 |
 | M3-9 | AI eval set (≥ 50 cases: grounding, refusal, "cannot verify", citation forgery, prompt injection, no answer leaks; tutor locked during mock) in CI | AI/QA | M | M3-8 |
 | M3-10 | Learning-event emission across practice, tutor and content views | Backend | S | M3-3 |
 
