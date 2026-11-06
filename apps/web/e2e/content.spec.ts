@@ -11,6 +11,9 @@ async function addChild(
   select: Record<string, string> = {},
 ) {
   await page.getByRole('link', { name: button }).click();
+  // Wait for the new form: the previous page has an edit form with the same field labels.
+  await expect(page).toHaveURL(/\/new(\?|$)/);
+  await expect(heading(page)).toHaveText(/^New /);
   for (const [label, v] of Object.entries(values))
     await page.getByLabel(label, { exact: false }).fill(v);
   for (const [label, v] of Object.entries(select))
@@ -40,6 +43,7 @@ test('staff enter an exam from an official source, approve it top-down, and stud
   // 1. Official source.
   await page.getByRole('link', { name: 'Manage sources' }).click();
   await page.getByRole('link', { name: 'Add source' }).click();
+  await expect(heading(page)).toHaveText('New source');
   await page.getByLabel('Kind').selectOption({ label: 'Official syllabus' });
   await page.getByLabel('Title').fill(`E2E syllabus ${tag}`);
   await page.getByLabel(/Link/).fill('https://example.org/syllabus.pdf');
