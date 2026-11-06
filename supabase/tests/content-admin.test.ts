@@ -151,6 +151,22 @@ describe('content management RPCs', () => {
       [c.subject],
       '22023',
     ); // draft -> approved skips review
+    // Retire bottom-up: the family still has an exam (and its descendants) below it.
+    await expectSqlError(
+      db(),
+      "select public.api_content_set_status('exam_families', $1, 'retired')",
+      [c.family],
+      '22023',
+    );
+    for (const [t, id] of [
+      ['topics', c.topic],
+      ['subjects', c.subject],
+      ['syllabus_versions', c.syllabus],
+      ['papers', c.paper],
+      ['exam_stages', c.stage],
+      ['exams', c.exam],
+    ] as const)
+      await setStatus(t, id, 'retired'); // drafts can be discarded
     await setStatus('exam_families', c.family, 'retired');
     await expectSqlError(
       db(),
@@ -280,6 +296,141 @@ describe('content management RPCs', () => {
       "select public.api_content_save_source(null, 'other', 'x', null, 'javascript:alert(1)', null, null, null)",
       [],
       '23514',
+    );
+  });
+
+  it('approval checks the whole chain, not just the parent', async () => {
+    const r = await staff();
+    await actAs(db(), r, 'aal2');
+    const c = await chain(db());
+    for (const [t, id] of [
+      ['exam_families', c.family],
+      ['exams', c.exam],
+      ['exam_stages', c.stage],
+    ] as const) {
+      await approve(t, id);
+    }
+    // Simulate an inconsistent tree (grandparent retired, parent still approved).
+    await actAsSuperuser(db());
+    await db().query("update public.exam_families set status = 'retired' where id = $1", [
+      c.family,
+    ]);
+    await actAs(db(), r, 'aal2');
+    await expectSqlError(
+      db(),
+      "select public.api_content_save_stage(null, $1, 'MAINS', 'Mains', null, 2::smallint)",
+      [c.exam],
+      '22023',
+    );
+    await setStatus('papers', c.paper, 'in_review');
+    await expectSqlError(
+      db(),
+      "select public.api_content_set_status('papers', $1, 'approved')",
+      [c.paper],
+      '22023',
+    );
+  });
+
+  it('a syllabus version needs an approved official source; sources in use cannot be retired', async () => {
+    const r = await staff();
+    await actAs(db(), r, 'aal2');
+    const c = await chain(db());
+    for (const [t, id] of [
+      ['exam_families', c.family],
+      ['exams', c.exam],
+      ['exam_stages', c.stage],
+      ['sources', c.source],
+      ['papers', c.paper],
+    ] as const)
+      await approve(t, id);
+    // No source.
+    const bare = await val(
+      db(),
+      "select public.api_content_save_syllabus(null, $1, 'no source', '2026-01-01', null)",
+      [c.paper],
+    );
+    await setStatus('syllabus_versions', bare, 'in_review');
+    await expectSqlError(
+      db(),
+      "select public.api_content_set_status('syllabus_versions', $1, 'approved')",
+      [bare],
+      '22023',
+    );
+    // Unofficial source.
+    const blog = await val(
+      db(),
+      "select public.api_content_save_source(null, 'other', 'A blog post', null, null, null, null, null)",
+    );
+    await approve('sources', blog);
+    const unofficial = await val(
+      db(),
+      "select public.api_content_save_syllabus(null, $1, 'blog', '2026-01-01', $2)",
+      [c.paper, blog],
+    );
+    await setStatus('syllabus_versions', unofficial, 'in_review');
+    await expectSqlError(
+      db(),
+      "select public.api_content_set_status('syllabus_versions', $1, 'approved')",
+      [unofficial],
+      '22023',
+    );
+    // Official, approved source works; the source then cannot be retired while cited.
+    await approve('syllabus_versions', c.syllabus);
+    await expectSqlError(
+      db(),
+      "select public.api_content_set_status('sources', $1, 'retired')",
+      [c.source],
+      '22023',
+    );
+  });
+
+  it('audit entries carry a snapshot; self-approval is flagged for the last editor too', async () => {
+    const author = await staff();
+    const editor = await staff('admin');
+    await actAs(db(), author, 'aal2');
+    const fam = await val(
+      db(),
+      "select public.api_content_save_family(null, 'SNAP', 'Snapshot', null)",
+    );
+    await actAs(db(), editor, 'aal2');
+    await db().query("select public.api_content_save_family($1, 'SNAP', 'Snapshot edited', null)", [
+      fam,
+    ]);
+    await approve('exam_families', fam);
+    await actAsSuperuser(db());
+    const rows = await db().query(
+      "select action, meta from public.audit_log where entity_id = $1 and action in ('content.update', 'content.status') order by id",
+      [fam],
+    );
+    const update = rows.rows.find((r) => r.action === 'content.update');
+    expect(update.meta.row.name_en).toBe('Snapshot edited');
+    const approval = rows.rows.find((r) => r.meta.to === 'approved');
+    expect(approval.meta.row.name_en).toBe('Snapshot edited');
+    expect(approval.meta.self_approved).toBe(true); // the editor approved their own edit
+  });
+
+  it('refuses status changes from students, staff without MFA, and a null status', async () => {
+    const r = await staff();
+    const student = await createUser(db());
+    await actAs(db(), r, 'aal2');
+    const fam = await val(db(), "select public.api_content_save_family(null, 'NULLS', 'x', null)");
+    await expectSqlError(
+      db(),
+      "select public.api_content_set_status('exam_families', $1, null)",
+      [fam],
+      '22023',
+    );
+    await actAs(db(), r, 'aal1');
+    await expectSqlError(
+      db(),
+      "select public.api_content_set_status('exam_families', $1, 'in_review')",
+      [fam],
+    );
+    await actAs(db(), student, 'aal2');
+    await expectSqlError(
+      db(),
+      "select public.api_content_set_status('exam_families', $1, 'in_review')",
+      [fam],
     );
   });
 });

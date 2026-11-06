@@ -3,7 +3,13 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { requireStaff } from '@/lib/auth/staff';
-import { loadChildren, loadCrumbs, loadItem, loadSourceOptions } from '@/lib/content/data';
+import {
+  loadChildren,
+  loadCrumbs,
+  loadItem,
+  loadSource,
+  loadSourceOptions,
+} from '@/lib/content/data';
 import { ENTITIES, isEntityKey, SOURCE_KINDS } from '@/lib/content/entities';
 import { ContentForm } from '../../content-form';
 import { StatusControls } from '../../status-controls';
@@ -28,12 +34,13 @@ export default async function ContentItemPage({
   if (!row) notFound();
   const parentId = def.parent ? (row[def.parent.column] as string) : null;
   const editable = row.status === 'draft' || row.status === 'in_review';
-  const [crumbs, children, sources] = await Promise.all([
+  const citedId = (row.source_id as string | null | undefined) ?? null;
+  const hasSourceField = def.fields.some((f) => f.type === 'source');
+  const [crumbs, children, sources, cited] = await Promise.all([
     loadCrumbs(supabase, def, parentId),
     loadChildren(supabase, def, id),
-    editable && def.fields.some((f) => f.type === 'source')
-      ? loadSourceOptions(supabase)
-      : Promise.resolve([]),
+    editable && hasSourceField ? loadSourceOptions(supabase, citedId) : Promise.resolve([]),
+    !editable && hasSourceField ? loadSource(supabase, citedId) : Promise.resolve(null),
   ]);
   const child = def.child ? ENTITIES[def.child] : undefined;
   const initial = Object.fromEntries(
@@ -86,6 +93,31 @@ export default async function ContentItemPage({
                   <dd>{display(f.name, row[f.name])}</dd>
                 </div>
               ))}
+            {hasSourceField && (
+              <div className="fact-row">
+                <dt>Official source</dt>
+                <dd>
+                  {cited ? (
+                    <>
+                      <Link href={`/admin/content/sources/${cited.id}`}>{cited.title}</Link>
+                      {cited.url ? <span className="small"> ({cited.url})</span> : null}
+                    </>
+                  ) : (
+                    '—'
+                  )}
+                </dd>
+              </div>
+            )}
+            {row.approved_at ? (
+              <div className="fact-row">
+                <dt>Approved</dt>
+                <dd>
+                  {new Date(String(row.approved_at)).toLocaleString('en-IN', {
+                    timeZone: 'Asia/Kolkata',
+                  })}
+                </dd>
+              </div>
+            ) : null}
           </dl>
         )}
       </section>

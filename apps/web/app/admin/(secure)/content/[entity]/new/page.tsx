@@ -23,7 +23,11 @@ export default async function NewContentPage({
     'content_reviewer',
   ]);
   const parent = (await searchParams).parent;
-  const parentId = typeof parent === 'string' ? parent : null;
+  const parentId =
+    typeof parent === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parent)
+      ? parent
+      : null;
   if (def.parent && !parentId) notFound();
   const [crumbs, sources] = await Promise.all([
     loadCrumbs(supabase, def, parentId),

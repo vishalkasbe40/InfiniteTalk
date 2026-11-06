@@ -41,7 +41,8 @@ Legend for the **RLS** column:
 
 All §2 content tables also carry `created_by`, `approved_by`, `approved_at`. They are written only via
 `api_content_save_*` / `api_content_set_status` (staff with aal2; draft → in_review → approved → retired;
-parent must be approved first; audited, self-approval flagged).
+every ancestor must be approved; syllabus versions need an approved official source; retire bottom-up;
+rows locked while changed; audit entries carry row snapshots; self-approval flagged, see review 0006 #5).
 
 ## 3. Learning content and questions
 

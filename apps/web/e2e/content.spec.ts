@@ -99,7 +99,14 @@ test('staff enter an exam from an official source, approve it top-down, and stud
   await expect(formAlert(page)).toContainText('weight note');
   await page.getByLabel('Why this weight').fill('The official syllabus lists two sub-areas here.');
   await page.getByRole('button', { name: 'Save changes' }).click();
-  await expect(page.getByRole('button', { name: 'Approve' })).toBeVisible();
+  // Make sure the saved note is really stored before approving (reload until it shows).
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByLabel('Why this weight')).toHaveValue(
+      'The official syllabus lists two sub-areas here.',
+      { timeout: 1_000 },
+    );
+  }).toPass({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Approve' }).click();
   await expect(heading(page)).toContainText('Approved');
 

@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { todayInIndia } from './schema';
 
 export interface PaperOption {
   id: string;
@@ -23,9 +24,13 @@ export async function loadPaperOptions(supabase: SupabaseClient): Promise<PaperO
   const { data, error } = await supabase
     .from('papers')
     .select(
-      'id, name_en, exam_stages!inner(name_en, status, exams!inner(name_en, status, exam_families!inner(name_en, status)))',
+      'id, name_en, exam_stages!inner(name_en, status, exams!inner(name_en, status, exam_families!inner(name_en, status))), syllabus_versions!inner(status, effective_from)',
     )
     .eq('status', 'approved')
+    // Only papers a student can actually be pinned to: an approved syllabus already in effect
+    // (same rule as api_save_onboarding, review 0006 #6).
+    .eq('syllabus_versions.status', 'approved')
+    .lte('syllabus_versions.effective_from', todayInIndia())
     .eq('exam_stages.status', 'approved')
     .eq('exam_stages.exams.status', 'approved')
     .eq('exam_stages.exams.exam_families.status', 'approved')

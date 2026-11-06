@@ -7,13 +7,15 @@ export const metadata: Metadata = { title: 'Admin · ExamSaathi' };
 export default async function AdminHome() {
   const { supabase, roles } = await requireStaff('/admin', ['admin', 'content_reviewer']);
   const isAdmin = roles.includes('admin');
-  const [invites, used] = await Promise.all([
-    supabase.from('beta_invites').select('id', { count: 'exact', head: true }),
-    supabase
-      .from('beta_invites')
-      .select('id', { count: 'exact', head: true })
-      .not('used_at', 'is', null),
-  ]);
+  const [invites, used] = isAdmin
+    ? await Promise.all([
+        supabase.from('beta_invites').select('id', { count: 'exact', head: true }),
+        supabase
+          .from('beta_invites')
+          .select('id', { count: 'exact', head: true })
+          .not('used_at', 'is', null),
+      ])
+    : [{ count: 0 }, { count: 0 }];
   return (
     <main>
       <h1>Admin</h1>

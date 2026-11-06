@@ -36,18 +36,32 @@ export async function loadTopLevel(supabase: SupabaseClient, def: EntityDef): Pr
   return data as Row[];
 }
 
-/** Sources that can be cited (not retired). */
-export async function loadSourceOptions(supabase: SupabaseClient) {
+/**
+ * Sources that can be cited (not retired), plus the currently cited one even if it was retired,
+ * so saving a draft never silently drops its citation (review 0006 #8).
+ */
+export async function loadSourceOptions(supabase: SupabaseClient, currentId?: string | null) {
   const { data, error } = await supabase
     .from('sources')
     .select('id, title, status')
-    .neq('status', 'retired')
+    .or(currentId ? `status.neq.retired,id.eq.${currentId}` : 'status.neq.retired')
     .order('title');
   if (error) throw new Error('could not load sources');
   return data.map((s) => ({
     id: s.id as string,
-    label: `${s.title}${s.status === 'approved' ? '' : ` (${s.status})`}`,
+    label: `${s.title}${s.status === 'approved' ? '' : ` (${String(s.status).replace('_', ' ')})`}`,
   }));
+}
+
+/** Title, link and status of one source, for showing citations on approved items. */
+export async function loadSource(supabase: SupabaseClient, id: string | null) {
+  if (!id) return null;
+  const { data } = await supabase
+    .from('sources')
+    .select('id, title, url, status')
+    .eq('id', id)
+    .maybeSingle();
+  return data as { id: string; title: string; url: string | null; status: string } | null;
 }
 
 export interface Crumb {

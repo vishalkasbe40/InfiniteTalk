@@ -7,7 +7,10 @@ import { idle } from '@/lib/auth/form-state';
 import type { EntityKey } from '@/lib/content/entities';
 
 const ACTIONS: Record<string, { to: string; label: string; secondary?: boolean }[]> = {
-  draft: [{ to: 'in_review', label: 'Send for review' }],
+  draft: [
+    { to: 'in_review', label: 'Send for review' },
+    { to: 'retired', label: 'Discard draft', secondary: true },
+  ],
   in_review: [
     { to: 'approved', label: 'Approve' },
     { to: 'draft', label: 'Send back to draft', secondary: true },
@@ -43,10 +46,11 @@ export function StatusControls({
           </button>
         </form>
       ))}
-      {state.status === 'error' && <FormMessage state={state} />}
+      {state.status !== 'idle' && <FormMessage state={state} />}
       {status === 'approved' && (
         <p className="why">
-          Approved items can’t be edited. To change one, retire it and create a new item.
+          Approved items can’t be edited. To change one, retire it and create a new item. Retire
+          from the bottom up: items below must be retired first.
         </p>
       )}
       {status === 'in_review' && (
