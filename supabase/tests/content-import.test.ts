@@ -219,6 +219,10 @@ describe('content import (owner only, drafts only)', () => {
     const changedMarks = bundle();
     changedMarks.families[0]!.exams[0]!.stages[0]!.papers[0]!.total_marks = 250;
     await expectSqlError(db(), sql, [JSON.stringify(changedMarks)], '22023');
+    // Same facts, newer official source for an existing paper: also not silently dropped.
+    const newCitation = bundle();
+    newCitation.families[0]!.exams[0]!.stages[0]!.papers[0]!.source = 'syllabus';
+    await expectSqlError(db(), sql, [JSON.stringify(newCitation)], '22023');
     // A new syllabus document under the old label must become a new version instead.
     const newDoc = bundle();
     newDoc.sources[1]!.document_sha256 = 'd'.repeat(64);

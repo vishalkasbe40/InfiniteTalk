@@ -27,6 +27,8 @@ Nothing in a bundle is ever approved automatically. Re-running the import is saf
   eligibility rules). If a matching row exists with **different** details or a different source,
   the import stops with an error instead of ignoring the change: use a **new label** (e.g. with
   the corrigendum number, or a new syllabus version) and let the reviewer retire the old one.
+  For an existing paper, leave out `source` and the facts unless they changed; a changed fact or
+  source for a paper stops the import and is corrected by a reviewer in Admin.
 - `ref` is lowercase with dashes and equals the file name, e.g.
   `2026-11-mpsc-rajyaseva-prelims-syllabus`.
 
@@ -107,6 +109,6 @@ Optional topic fields: `weight` (default 1; any other value needs `weight_note` 
   throwaway database (`supabase/tests/content-bundles.test.ts`).
 - After merge, the import runs only if the database already has the import function: run
   **Deploy database** first when a pull request also contains migrations.
-- Pull requests from `content/…` branches may change only `content/imports/*.json` (CI check
-  `content-scope`). The database also refuses links outside the official hosts and sources without
+- A pull request that changes any bundle may change only `content/imports/*.json` (CI check
+  `content-scope`, whatever the branch is called). The database also refuses links outside the official hosts and sources without
   a fingerprint, so a bundle that skipped the validator still can't cite other sites.

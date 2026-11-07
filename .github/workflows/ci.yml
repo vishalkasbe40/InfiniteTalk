@@ -13,21 +13,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Content-agent pull requests (branches content/...) may only change bundle files (ADR 0005).
+  # A pull request that adds or changes a content bundle may change nothing else (ADR 0005), so
+  # merging a bundle can never also change the code that imports it. Independent of branch names.
   content-scope:
-    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'content/')
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Only content/imports/*.json may change
+      - name: Bundle changes come alone
         env:
           BASE: ${{ github.base_ref }}
         run: |
-          bad=$(git diff --name-only "origin/$BASE...HEAD" | grep -vE '^content/imports/[a-z0-9-]+\.json$' || true)
+          changed=$(git diff --name-only "origin/$BASE...HEAD")
+          if ! echo "$changed" | grep -qE '^content/imports/.*\.json$'; then
+            echo "No content bundles changed."
+            exit 0
+          fi
+          bad=$(echo "$changed" | grep -vE '^content/imports/[a-z0-9-]+\.json$' || true)
           if [ -n "$bad" ]; then
-            echo "::error::Content pull requests may only change content/imports/*.json. Other files:"
+            echo "::error::A pull request that changes content bundles may only change content/imports/*.json. Other files:"
             echo "$bad"
             exit 1
           fi

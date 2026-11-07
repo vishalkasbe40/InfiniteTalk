@@ -482,12 +482,13 @@ begin
           end if;
           if v_paper is not null and exists (
             select 1 from public.papers x where x.id = v_paper and (
-              (pa ->> 'duration_min' is not null and x.duration_min is distinct from (pa ->> 'duration_min')::smallint)
+              (v_source is not null and x.source_id is distinct from v_source)
+              or (pa ->> 'duration_min' is not null and x.duration_min is distinct from (pa ->> 'duration_min')::smallint)
               or (pa ->> 'total_marks' is not null and x.total_marks is distinct from (pa ->> 'total_marks')::numeric)
               or (pa ->> 'negative_marking' is not null
                   and x.negative_marking is distinct from (pa ->> 'negative_marking')::numeric))
           ) then
-            raise exception 'paper % already exists with different exam facts; a reviewer must change it in Admin',
+            raise exception 'paper % already exists with different exam facts or source; a reviewer must change it in Admin',
               pa ->> 'code' using errcode = '22023';
           end if;
           if v_paper is null then
