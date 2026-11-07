@@ -33,6 +33,16 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M1-16 | Per-user/IP rate limits on auth server actions; forward client IP so Supabase's per-IP auth limits don't throttle all users behind our server (trust the forwarded header only with a secret, review 0003 #9) | Backend | M | M1-4 | Before beta (M5 gate) |
 | M1-17 | Eligibility notice links to an approved `official_notification` source for the chosen exam family (no hard-coded URLs) | FE/Content | S | M1-8 | review 0004 #10 |
 
+## Content agent and eligibility (ADR 0005, founder decision 2026-11-07)
+| ID | Task | Owner | Size | Status |
+|---|---|---|---|---|
+| C-1 | Eligibility rules table + admin screens; `sources.document_sha256`; draft-only `private.import_content_bundle`; bundle format, validator, official-domain list; CI bundle test; **Import content drafts** workflow | Backend/FE/Content | M | **Done (this change)**; first hosted run after **Deploy database** |
+| C-2 | Weekly content-agent scheduled session (`docs/runbooks/content-agent.md`, `content/watchlist.json`); network allow-list for each exam body | CEO/Content | S | Set up with C-1; hosts beyond MPSC need founder approval |
+| C-3 | First bundles: MPSC Rajyaseva (syllabus + latest notification), then UPSC CSE, SSC CGL/CHSL, IBPS PO/Clerk, RRB NTPC | Content agent + Founder review | L (review time) | |
+| E-1 | Student eligibility profile in onboarding: education level + stream, date of birth, domicile state; optional category, PwBD, ex-serviceman ("prefer not to say"); privacy notice update; counsel review of sensitive fields | Backend/FE/Founder | M | |
+| E-2 | Eligibility finder: approved rules vs profile → "appears eligible" / "check details", official link, validity dates, never a guarantee; tests for age-on-date and relaxation maths | Backend/FE | M | |
+| E-3 | Per-exam goal: student picks an eligible exam → paper/syllabus pinning (extends M1-9) | FE/Backend | S | |
+
 ## Milestone 2 — Diagnostic and plan (≈ 3 weeks)
 | ID | Task | Owner | Size | Depends |
 |---|---|---|---|---|
@@ -45,7 +55,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M2-5 | Diagnostic UI: pause/resume, timer per item, confidence tap, slow-network handling | FE | M | M2-4 |
 | M2-6 | `domain/mastery` Beta estimator + bands + tests; `topic_mastery` writer | AI/Learning | M | M2-1 |
 | M2-7 | Baseline screen (bands, "not enough evidence", explanation) | FE | S | M2-6 |
-| M2-8 | `domain/planner.generatePlan` + feasibility options + property tests (never exceeds availability) | AI/Learning | L | M2-6 |
+| M2-8 | `domain/planner.generatePlan` + feasibility options + property tests (never exceeds availability, rest days free, deadline respected; PRD §6a) | AI/Learning | L | M2-6 |
 | M2-9 | Plan versions/tasks schema; review, edit and accept UI; each plan version snapshots the goal + weekly availability it was built from (review 0004 #8) | Backend/FE | M | M2-8 |
 | M2-10 | QA: E2E diagnostic → plan; network payload test for answer-key leakage; server timer/auto-submit test | QA | M | M2-5, M2-9 |
 
@@ -59,7 +69,7 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M3-5 | Timed mock test (server-timed, auto-submit) | FE/Backend | M | M2-1 |
 | M3-6 | `packages/ai`: provider adapter, router, metering, quota `consume_tutor_turn()` | AI | M | D4, D5 |
 | M3-7 | Retrieval: content_chunks, embeddings job, hybrid search function | AI/Backend | M | M3-1 |
-| M3-8 | Tutor tools + guardrail post-check + tutor UI (modes, citations, quota messages) | AI/FE | L | M3-6, M3-7 |
+| M3-8 | Tutor tools + guardrail post-check + tutor UI (modes, citations, quota messages); daily session from today's plan, fitted to today's minutes, level- and deadline-aware (PRD §6a) | AI/FE | L | M3-6, M3-7 |
 | M3-9 | AI eval set (≥ 50 cases: grounding, refusal, "cannot verify", citation forgery, prompt injection, no answer leaks; tutor locked during mock) in CI | AI/QA | M | M3-8 |
 | M3-10 | Learning-event emission across practice, tutor and content views | Backend | S | M3-3 |
 

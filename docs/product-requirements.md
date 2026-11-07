@@ -30,6 +30,12 @@ consent flows and is out of scope until legal review.
 
 ## 3. MVP scope: one exam, one stage, one loop
 
+> **Changed 2026-11-07 (ADR 0005):** the founder widened the scope to **all government exams the
+> student is eligible for, with full preparation**, an eligibility finder, and a weekly content agent
+> that drafts official exam data for human approval. The learning loop below is built once and reused
+> per exam; exams open to students one by one as their content is approved. The single-exam text
+> below remains the first exam to be completed end-to-end.
+
 **Exam for the first loop:** MPSC State Services (Rajyaseva) Preliminary Examination —
 General Studies Paper I. *Founder to confirm* (see §9). The data model supports other
 exams, stages and papers; the MVP ships content for this one paper only.
@@ -128,6 +134,28 @@ These follow `CLAUDE.md` §4, plus decisions made here:
 - The tutor never states exam dates, vacancies, cut-offs or eligibility unless they come from an approved official-source record with a date.
 - AI-generated practice questions are **never** shown to students as verified. In the MVP the tutor
   draws practice only from approved items; AI-drafted items go to the admin review queue.
+
+## 6a. Personalised teaching (founder requirement, 2026-11-06)
+
+Teaching is curated for each student from **their own goal**: weekly study hours (per weekday, with
+rest days) and target date as the deadline, plus their topic levels. Acceptance criteria:
+
+1. **Daily session = today's plan.** The tutor's session proposes exactly today's plan tasks and fits
+   the student's available minutes for that weekday; it never assigns work on a rest day.
+2. **Deadline-aware pacing.** The planner covers the syllabus before the target date with a ~12 %
+   buffer, revision at +1/+7/+21 days and mock-test cadence that tightens near the date; the tutor's
+   emphasis shifts from building understanding to revision and mocks as the date approaches.
+3. **Level-aware teaching.** Explanations, examples and question difficulty follow the student's band
+   per topic (weak → simpler steps and more examples; strong → harder practice, short recaps), and
+   past mistakes are revisited.
+4. **Honest feasibility.** If the hours cannot cover the syllabus by the date, the student is told and
+   offered options (later date, more hours, focus on highest-weight topics); no overstuffed plan.
+5. **Adapts without surprises.** New evidence, missed tasks or a change of hours/date produce a
+   re-plan **proposal** with its reason; nothing changes until the student accepts.
+6. **Language.** Teaching uses the student's chosen language where reviewed content exists.
+
+Tests: planner property tests (never exceeds daily minutes, nothing on rest days, everything before the
+date or flagged infeasible) and tutor evaluation cases for pacing and level (backlog M2-8, M3-8, M3-9).
 
 ## 7. Metrics instrumented in the MVP
 

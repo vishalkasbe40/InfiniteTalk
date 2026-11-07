@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ENTITIES, entityByTable, toRpcParams } from '../lib/content/entities';
+import {
+  ENTITIES,
+  entityByTable,
+  formatRelaxations,
+  parseRelaxations,
+  toRpcParams,
+} from '../lib/content/entities';
 
 const parent = '00000000-0000-4000-8000-000000000004';
 
@@ -7,7 +13,8 @@ describe('content entity definitions', () => {
   it('covers every level with a parent link to the level above', () => {
     expect(ENTITIES.topics.parent?.key).toBe('subjects');
     expect(ENTITIES.subjects.parent?.key).toBe('syllabus');
-    expect(ENTITIES.families.child).toBe('exams');
+    expect(ENTITIES.families.children).toEqual(['exams']);
+    expect(ENTITIES.exams.children).toEqual(['stages', 'eligibility']);
     expect(entityByTable('exam_stages')?.key).toBe('stages');
   });
 
@@ -79,5 +86,49 @@ describe('content entity definitions', () => {
     expect(
       toRpcParams(ENTITIES.families, { code: 'F1', name_en: 'x' }, 'not-a-uuid', null).ok,
     ).toBe(false);
+  });
+});
+
+describe('eligibility rules', () => {
+  const exam = '00000000-0000-4000-8000-000000000005';
+
+  it('parses relaxations and the education level into RPC parameters', () => {
+    const r = toRpcParams(
+      ENTITIES.eligibility,
+      {
+        label: ' Advt 1/2026 ',
+        min_education: 'graduate',
+        age_min: '19',
+        age_max: '38',
+        age_relaxations: 'obc=3\nSC : 5\n\n',
+      },
+      null,
+      exam,
+    );
+    expect(r.ok && r.params).toMatchObject({
+      p_exam_id: exam,
+      p_label: 'Advt 1/2026',
+      p_min_education: 'graduate',
+      p_age_min: 19,
+      p_age_relaxations: { OBC: 3, SC: 5 },
+      p_domicile_state: null,
+    });
+  });
+
+  it('rejects unknown education levels and malformed or excessive relaxations', () => {
+    const base = { label: 'x', min_education: 'graduate' };
+    expect(
+      toRpcParams(ENTITIES.eligibility, { ...base, min_education: 'phd' }, null, exam).ok,
+    ).toBe(false);
+    for (const bad of ['OBC', 'OBC=20', '3=OBC', 'OBC=three', 'OBC=3\nobc=5']) {
+      expect(
+        toRpcParams(ENTITIES.eligibility, { ...base, age_relaxations: bad }, null, exam).ok,
+      ).toBe(false);
+    }
+  });
+
+  it('round-trips relaxations for editing', () => {
+    expect(parseRelaxations(formatRelaxations({ OBC: 3, SC: 5 }))).toEqual({ OBC: 3, SC: 5 });
+    expect(formatRelaxations(null)).toBe('');
   });
 });

@@ -1,0 +1,16 @@
+{
+  "comment": "Hosts the content agent may cite as official sources. Any host ending in a listed suffix is allowed. Changing this list is a founder decision (ADR 0005).",
+  "suffixes": [".gov.in", ".nic.in"],
+  "hosts": [
+    "ibps.in",
+    "www.ibps.in",
+    "sbi.co.in",
+    "bank.sbi",
+    "rbi.org.in",
+    "opportunities.rbi.org.in",
+    "nabard.org",
+    "www.nabard.org",
+    "licindia.in",
+    "www.licindia.in"
+  ]
+}

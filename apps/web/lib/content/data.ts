@@ -18,9 +18,16 @@ export async function loadChildren(
   supabase: SupabaseClient,
   def: EntityDef,
   id: string,
-): Promise<Row[]> {
-  if (!def.child) return [];
-  const child = ENTITIES[def.child];
+): Promise<{ def: EntityDef; rows: Row[] }[]> {
+  return Promise.all(
+    (def.children ?? []).map(async (key) => ({
+      def: ENTITIES[key],
+      rows: await loadChildRows(supabase, ENTITIES[key], id),
+    })),
+  );
+}
+
+async function loadChildRows(supabase: SupabaseClient, child: EntityDef, id: string) {
   const query = supabase.from(child.table).select('*').eq(child.parent!.column, id);
   const ordered = child.fields.some((f) => f.name === 'sort_order')
     ? query.order('sort_order').order(child.titleField)

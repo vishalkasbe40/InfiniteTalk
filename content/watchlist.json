@@ -1,0 +1,42 @@
+{
+  "comment": "Exam bodies the content agent checks each week (docs/runbooks/content-agent.md). Each host must also be allowed in the cloud environment's network settings. Adding a body is a founder decision.",
+  "bodies": [
+    {
+      "code": "MPSC",
+      "name": "Maharashtra Public Service Commission",
+      "state": "Maharashtra",
+      "pages": ["https://mpsc.gov.in/"],
+      "priority": 1
+    },
+    {
+      "code": "UPSC",
+      "name": "Union Public Service Commission",
+      "pages": ["https://upsc.gov.in/"],
+      "priority": 2
+    },
+    {
+      "code": "SSC",
+      "name": "Staff Selection Commission",
+      "pages": ["https://ssc.gov.in/"],
+      "priority": 2
+    },
+    {
+      "code": "IBPS",
+      "name": "Institute of Banking Personnel Selection",
+      "pages": ["https://www.ibps.in/"],
+      "priority": 3
+    },
+    {
+      "code": "SBI",
+      "name": "State Bank of India (recruitment)",
+      "pages": ["https://sbi.co.in/web/careers"],
+      "priority": 3
+    },
+    {
+      "code": "RRB",
+      "name": "Railway Recruitment Boards",
+      "pages": ["https://www.rrbcdg.gov.in/"],
+      "priority": 3
+    }
+  ]
+}
