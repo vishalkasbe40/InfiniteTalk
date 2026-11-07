@@ -3,10 +3,28 @@
  * matching database function and link parents/children. The database re-validates everything.
  */
 export type EntityKey =
-  'sources' | 'families' | 'exams' | 'stages' | 'papers' | 'syllabus' | 'subjects' | 'topics';
+  | 'sources'
+  | 'families'
+  | 'exams'
+  | 'eligibility'
+  | 'stages'
+  | 'papers'
+  | 'syllabus'
+  | 'subjects'
+  | 'topics';
 
 export type FieldType =
-  'text' | 'textarea' | 'code' | 'int' | 'decimal' | 'date' | 'url' | 'source' | 'kind';
+  | 'text'
+  | 'textarea'
+  | 'code'
+  | 'int'
+  | 'decimal'
+  | 'date'
+  | 'url'
+  | 'source'
+  | 'kind'
+  | 'education'
+  | 'relaxations';
 
 export interface FieldDef {
   name: string; // column name
@@ -27,7 +45,7 @@ export interface EntityDef {
   rpc: string;
   titleField: string;
   parent?: { key: EntityKey; param: string; column: string };
-  child?: EntityKey;
+  children?: EntityKey[];
   fields: FieldDef[];
 }
 
@@ -115,7 +133,7 @@ export const ENTITIES: Record<EntityKey, EntityDef> = {
     plural: 'Exam groups',
     rpc: 'api_content_save_family',
     titleField: 'name_en',
-    child: 'exams',
+    children: ['exams'],
     fields: [code('Short capital-letter code, e.g. MPSC.'), ...nameFields],
   },
   exams: {
@@ -126,11 +144,81 @@ export const ENTITIES: Record<EntityKey, EntityDef> = {
     rpc: 'api_content_save_exam',
     titleField: 'name_en',
     parent: { key: 'families', param: 'p_family_id', column: 'family_id' },
-    child: 'stages',
+    children: ['stages', 'eligibility'],
     fields: [
       code('e.g. MPSC_RAJYASEVA.'),
       ...nameFields,
       { name: 'state', param: 'p_state', label: 'State', type: 'text', max: 64 },
+    ],
+  },
+  eligibility: {
+    key: 'eligibility',
+    table: 'eligibility_rules',
+    label: 'Eligibility rule',
+    plural: 'Eligibility rules',
+    rpc: 'api_content_save_eligibility',
+    titleField: 'label',
+    parent: { key: 'exams', param: 'p_exam_id', column: 'exam_id' },
+    fields: [
+      {
+        name: 'label',
+        param: 'p_label',
+        label: 'Label',
+        type: 'text',
+        required: true,
+        max: 200,
+        help: 'e.g. “Advertisement 12/2026: Group B posts”.',
+      },
+      { name: 'post_name', param: 'p_post_name', label: 'Post(s)', type: 'text', max: 200 },
+      {
+        name: 'min_education',
+        param: 'p_min_education',
+        label: 'Minimum education',
+        type: 'education',
+        required: true,
+      },
+      {
+        name: 'education_note',
+        param: 'p_education_note',
+        label: 'Education details',
+        type: 'textarea',
+        max: 1000,
+        help: 'Required degree or stream, equivalents, whether final-year students may apply.',
+      },
+      { name: 'age_min', param: 'p_age_min', label: 'Minimum age', type: 'int', min: 10, max: 80 },
+      { name: 'age_max', param: 'p_age_max', label: 'Maximum age', type: 'int', min: 10, max: 80 },
+      {
+        name: 'age_reference_date',
+        param: 'p_age_reference_date',
+        label: 'Age is counted on',
+        type: 'date',
+      },
+      {
+        name: 'age_relaxations',
+        param: 'p_age_relaxations',
+        label: 'Age relaxations (extra years)',
+        type: 'relaxations',
+        help: 'One per line, as CATEGORY=years, e.g. OBC=3. Copy exactly from the notification.',
+      },
+      {
+        name: 'domicile_state',
+        param: 'p_domicile_state',
+        label: 'Domicile required (state)',
+        type: 'text',
+        max: 64,
+        help: 'Leave empty if candidates from any state may apply.',
+      },
+      {
+        name: 'other_conditions',
+        param: 'p_other_conditions',
+        label: 'Other conditions',
+        type: 'textarea',
+        max: 2000,
+        help: 'Nationality, number of attempts, physical standards, language, experience.',
+      },
+      { name: 'valid_from', param: 'p_valid_from', label: 'Valid from', type: 'date' },
+      { name: 'valid_until', param: 'p_valid_until', label: 'Valid until', type: 'date' },
+      sourceField('The official notification these conditions come from (required to approve).'),
     ],
   },
   stages: {
@@ -141,7 +229,7 @@ export const ENTITIES: Record<EntityKey, EntityDef> = {
     rpc: 'api_content_save_stage',
     titleField: 'name_en',
     parent: { key: 'exams', param: 'p_exam_id', column: 'exam_id' },
-    child: 'papers',
+    children: ['papers'],
     fields: [code('e.g. PRELIMS.'), ...nameFields, order],
   },
   papers: {
@@ -152,7 +240,7 @@ export const ENTITIES: Record<EntityKey, EntityDef> = {
     rpc: 'api_content_save_paper',
     titleField: 'name_en',
     parent: { key: 'stages', param: 'p_stage_id', column: 'stage_id' },
-    child: 'syllabus',
+    children: ['syllabus'],
     fields: [
       code('e.g. GS1.'),
       ...nameFields,
@@ -191,7 +279,7 @@ export const ENTITIES: Record<EntityKey, EntityDef> = {
     rpc: 'api_content_save_syllabus',
     titleField: 'label',
     parent: { key: 'papers', param: 'p_paper_id', column: 'paper_id' },
-    child: 'subjects',
+    children: ['subjects'],
     fields: [
       {
         name: 'label',
@@ -220,7 +308,7 @@ export const ENTITIES: Record<EntityKey, EntityDef> = {
     rpc: 'api_content_save_subject',
     titleField: 'name_en',
     parent: { key: 'syllabus', param: 'p_syllabus_version_id', column: 'syllabus_version_id' },
-    child: 'topics',
+    children: ['topics'],
     fields: [...nameFields, order],
   },
   topics: {
@@ -270,6 +358,40 @@ export const SOURCE_KINDS = [
   { value: 'other', label: 'Other' },
 ] as const;
 
+export const EDUCATION_LEVELS = [
+  { value: 'none', label: 'No formal requirement' },
+  { value: 'class_8', label: 'Class 8' },
+  { value: 'class_10', label: 'Class 10 (SSC)' },
+  { value: 'class_12', label: 'Class 12 (HSC)' },
+  { value: 'diploma', label: 'Diploma' },
+  { value: 'graduate', label: 'Graduate degree' },
+  { value: 'postgraduate', label: 'Postgraduate degree' },
+  { value: 'doctorate', label: 'Doctorate' },
+] as const;
+
+/** "OBC=3\nSC=5" -> {OBC: 3, SC: 5}; null when the text is not valid. */
+export function parseRelaxations(raw: string): Record<string, number> | null {
+  const out: Record<string, number> = {};
+  for (const line of raw.split(/[\n,]+/)) {
+    const t = line.trim();
+    if (!t) continue;
+    const m = /^([A-Za-z][A-Za-z0-9_]{1,31})\s*[=:]\s*(\d{1,2}(?:\.\d)?)$/.exec(t);
+    if (!m) return null;
+    const years = Number(m[2]);
+    if (years > 15) return null;
+    out[m[1]!.toUpperCase()] = years;
+  }
+  return Object.keys(out).length > 20 ? null : out;
+}
+
+/** {OBC: 3} -> "OBC=3" (one per line), for editing. */
+export function formatRelaxations(v: unknown): string {
+  if (!v || typeof v !== 'object') return '';
+  return Object.entries(v as Record<string, unknown>)
+    .map(([k, n]) => `${k}=${String(n)}`)
+    .join('\n');
+}
+
 export const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
   in_review: 'In review',
@@ -286,7 +408,8 @@ export function entityByTable(table: string): EntityDef | undefined {
 }
 
 export type ParseResult =
-  { ok: true; params: Record<string, string | number | null> } | { ok: false; message: string };
+  | { ok: true; params: Record<string, string | number | null | Record<string, number>> }
+  | { ok: false; message: string };
 
 /** Turns form values into RPC parameters for `def`, with friendly validation messages. */
 export function toRpcParams(
@@ -297,7 +420,7 @@ export function toRpcParams(
 ): ParseResult {
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (id !== null && !uuid.test(id)) return { ok: false, message: 'Invalid item.' };
-  const params: Record<string, string | number | null> = { p_id: id };
+  const params: Record<string, string | number | null | Record<string, number>> = { p_id: id };
   if (def.parent) {
     if (!parentId || !uuid.test(parentId)) return { ok: false, message: 'Missing parent item.' };
     params[def.parent.param] = parentId;
@@ -345,6 +468,22 @@ export function toRpcParams(
         if (!uuid.test(raw)) return { ok: false, message: 'Invalid source.' };
         params[f.param] = raw;
         break;
+      case 'education':
+        if (!EDUCATION_LEVELS.some((k) => k.value === raw))
+          return { ok: false, message: 'Choose an education level.' };
+        params[f.param] = raw;
+        break;
+      case 'relaxations': {
+        const parsed = parseRelaxations(raw);
+        if (!parsed) {
+          return {
+            ok: false,
+            message: `${f.label}: write one per line as CATEGORY=years (0–15), e.g. OBC=3.`,
+          };
+        }
+        params[f.param] = parsed;
+        break;
+      }
       case 'kind':
         if (!SOURCE_KINDS.some((k) => k.value === raw))
           return { ok: false, message: 'Choose a source kind.' };

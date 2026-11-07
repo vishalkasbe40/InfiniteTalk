@@ -5,7 +5,7 @@ import { saveContent } from '@/app/actions/content';
 import { FormMessage } from '@/components/form-message';
 import { SubmitButton } from '@/components/submit-button';
 import { idle } from '@/lib/auth/form-state';
-import { ENTITIES, SOURCE_KINDS, type EntityKey } from '@/lib/content/entities';
+import { EDUCATION_LEVELS, ENTITIES, SOURCE_KINDS, type EntityKey } from '@/lib/content/entities';
 
 export function ContentForm({
   entity,
@@ -43,7 +43,7 @@ export function ContentForm({
               {f.label}
               {f.required ? ' *' : ''}
             </label>
-            {f.type === 'textarea' ? (
+            {f.type === 'textarea' || f.type === 'relaxations' ? (
               <textarea
                 id={fid}
                 name={f.name}
@@ -52,6 +52,21 @@ export function ContentForm({
                 aria-describedby={help}
                 rows={3}
               />
+            ) : f.type === 'education' ? (
+              <select
+                id={fid}
+                name={f.name}
+                required={f.required}
+                defaultValue={value(f.name)}
+                aria-describedby={help}
+              >
+                <option value="">Choose…</option>
+                {EDUCATION_LEVELS.map((k) => (
+                  <option key={k.value} value={k.value}>
+                    {k.label}
+                  </option>
+                ))}
+              </select>
             ) : f.type === 'kind' ? (
               <select
                 id={fid}

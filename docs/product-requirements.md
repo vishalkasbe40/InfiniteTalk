@@ -30,6 +30,12 @@ consent flows and is out of scope until legal review.
 
 ## 3. MVP scope: one exam, one stage, one loop
 
+> **Changed 2026-11-07 (ADR 0005):** the founder widened the scope to **all government exams the
+> student is eligible for, with full preparation**, an eligibility finder, and a weekly content agent
+> that drafts official exam data for human approval. The learning loop below is built once and reused
+> per exam; exams open to students one by one as their content is approved. The single-exam text
+> below remains the first exam to be completed end-to-end.
+
 **Exam for the first loop:** MPSC State Services (Rajyaseva) Preliminary Examination —
 General Studies Paper I. *Founder to confirm* (see §9). The data model supports other
 exams, stages and papers; the MVP ships content for this one paper only.

@@ -10,7 +10,13 @@ import {
   loadSource,
   loadSourceOptions,
 } from '@/lib/content/data';
-import { ENTITIES, isEntityKey, SOURCE_KINDS } from '@/lib/content/entities';
+import {
+  EDUCATION_LEVELS,
+  ENTITIES,
+  formatRelaxations,
+  isEntityKey,
+  SOURCE_KINDS,
+} from '@/lib/content/entities';
 import { ContentForm } from '../../content-form';
 import { StatusControls } from '../../status-controls';
 
@@ -42,14 +48,22 @@ export default async function ContentItemPage({
     editable && hasSourceField ? loadSourceOptions(supabase, citedId) : Promise.resolve([]),
     !editable && hasSourceField ? loadSource(supabase, citedId) : Promise.resolve(null),
   ]);
-  const child = def.child ? ENTITIES[def.child] : undefined;
   const initial = Object.fromEntries(
-    def.fields.map((f) => [f.name, row[f.name] == null ? '' : String(row[f.name])]),
+    def.fields.map((f) => [
+      f.name,
+      f.type === 'relaxations'
+        ? formatRelaxations(row[f.name])
+        : row[f.name] == null
+          ? ''
+          : String(row[f.name]),
+    ]),
   );
-  const display = (name: string, v: unknown) =>
-    name === 'kind'
-      ? (SOURCE_KINDS.find((k) => k.value === v)?.label ?? String(v))
-      : String(v ?? '—');
+  const display = (type: string, v: unknown) => {
+    if (type === 'kind') return SOURCE_KINDS.find((k) => k.value === v)?.label ?? String(v);
+    if (type === 'education') return EDUCATION_LEVELS.find((k) => k.value === v)?.label ?? '—';
+    if (type === 'relaxations') return formatRelaxations(v).replaceAll('\n', ', ') || '—';
+    return String(v ?? '—');
+  };
 
   return (
     <main>
@@ -90,7 +104,7 @@ export default async function ContentItemPage({
               .map((f) => (
                 <div key={f.name} className="fact-row">
                   <dt>{f.label}</dt>
-                  <dd>{display(f.name, row[f.name])}</dd>
+                  <dd>{display(f.type, row[f.name])}</dd>
                 </div>
               ))}
             {hasSourceField && (
@@ -122,14 +136,14 @@ export default async function ContentItemPage({
         )}
       </section>
 
-      {child && (
-        <section className="card" aria-labelledby="children-h">
-          <h2 id="children-h">{child.plural}</h2>
-          {children.length === 0 ? (
+      {children.map(({ def: child, rows }) => (
+        <section className="card" aria-labelledby={`children-${child.key}`} key={child.key}>
+          <h2 id={`children-${child.key}`}>{child.plural}</h2>
+          {rows.length === 0 ? (
             <p className="muted">None yet.</p>
           ) : (
             <ul className="item-list">
-              {children.map((c) => (
+              {rows.map((c) => (
                 <li key={c.id}>
                   <Link href={`/admin/content/${child.key}/${c.id}`}>
                     {String(c[child.titleField])}
@@ -145,7 +159,7 @@ export default async function ContentItemPage({
             </Link>
           )}
         </section>
-      )}
+      ))}
     </main>
   );
 }

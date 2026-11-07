@@ -37,12 +37,16 @@ Legend for the **RLS** column:
 | `subjects` | `syllabus_version_id`, `name_en`, `name_mr`, `order`, `status` | approved-read | |
 | `topics` | `subject_id`, `parent_topic_id` (subtopics), `name_en`, `name_mr`, `weight numeric`, `est_learn_min`, `status` | approved-read | `weight` must be justified (source or note). |
 | `topic_prerequisites` | `topic_id`, `requires_topic_id` | readable when both topics are approved | Cycle check in a trigger. |
-| `sources` | `status`, `kind` (`official_notification`,`official_syllabus`,`textbook_licensed`,`original`,`other`), `title`, `publisher`, `url`, `published_on`, `retrieved_on`, `licence_note` | approved-read | The source register. `original` = written by ExamSaathi reviewers. |
+| `sources` | `status`, `kind` (`official_notification`,`official_syllabus`,`textbook_licensed`,`original`,`other`), `title`, `publisher`, `url`, `published_on`, `retrieved_on`, `licence_note`, `document_sha256` | approved-read | The source register. `original` = written by ExamSaathi reviewers. The fingerprint detects changed official files (ADR 0005). |
+| `eligibility_rules` | `exam_id`, `label`, `post_name`, `min_education` (`education_level` enum: none → doctorate), `education_note`, `age_min`, `age_max`, `age_reference_date`, `age_relaxations jsonb` (`{"OBC": 3}`), `domicile_state`, `other_conditions`, `valid_from`, `valid_until`, `source_id`, `status` | approved-read | Official eligibility per notification (ADR 0005). Approval needs the exam chain approved and an approved official source. |
 
 All §2 content tables also carry `created_by`, `approved_by`, `approved_at`. They are written only via
 `api_content_save_*` / `api_content_set_status` (staff with aal2; draft → in_review → approved → retired;
 every ancestor must be approved; syllabus versions need an approved official source; retire bottom-up;
 rows locked while changed; audit entries carry row snapshots; self-approval flagged, see review 0006 #5).
+The content agent's bundles enter only through `private.import_content_bundle(jsonb)` (database owner
+only): drafts only, existing rows reused and never changed, official sources required, every created row
+audited as `content.import` (ADR 0005, `content/README.md`).
 
 ## 3. Learning content and questions
 

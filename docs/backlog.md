@@ -33,6 +33,16 @@ Every task inherits the Definition of Done in `CLAUDE.md` §13.
 | M1-16 | Per-user/IP rate limits on auth server actions; forward client IP so Supabase's per-IP auth limits don't throttle all users behind our server (trust the forwarded header only with a secret, review 0003 #9) | Backend | M | M1-4 | Before beta (M5 gate) |
 | M1-17 | Eligibility notice links to an approved `official_notification` source for the chosen exam family (no hard-coded URLs) | FE/Content | S | M1-8 | review 0004 #10 |
 
+## Content agent and eligibility (ADR 0005, founder decision 2026-11-07)
+| ID | Task | Owner | Size | Status |
+|---|---|---|---|---|
+| C-1 | Eligibility rules table + admin screens; `sources.document_sha256`; draft-only `private.import_content_bundle`; bundle format, validator, official-domain list; CI bundle test; **Import content drafts** workflow | Backend/FE/Content | M | **Done (this change)**; first hosted run after **Deploy database** |
+| C-2 | Weekly content-agent scheduled session (`docs/runbooks/content-agent.md`, `content/watchlist.json`); network allow-list for each exam body | CEO/Content | S | Set up with C-1; hosts beyond MPSC need founder approval |
+| C-3 | First bundles: MPSC Rajyaseva (syllabus + latest notification), then UPSC CSE, SSC CGL/CHSL, IBPS PO/Clerk, RRB NTPC | Content agent + Founder review | L (review time) | |
+| E-1 | Student eligibility profile in onboarding: education level + stream, date of birth, domicile state; optional category, PwBD, ex-serviceman ("prefer not to say"); privacy notice update; counsel review of sensitive fields | Backend/FE/Founder | M | |
+| E-2 | Eligibility finder: approved rules vs profile → "appears eligible" / "check details", official link, validity dates, never a guarantee; tests for age-on-date and relaxation maths | Backend/FE | M | |
+| E-3 | Per-exam goal: student picks an eligible exam → paper/syllabus pinning (extends M1-9) | FE/Backend | S | |
+
 ## Milestone 2 — Diagnostic and plan (≈ 3 weeks)
 | ID | Task | Owner | Size | Depends |
 |---|---|---|---|---|
