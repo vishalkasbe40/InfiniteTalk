@@ -67,11 +67,11 @@ describe.each(files.length ? files : ['(none)'])('bundle %s', (file) => {
     await db().query(q, [JSON.stringify(bundle)]);
     const again = (await db().query(q, [JSON.stringify(bundle)])).rows[0].r;
     expect(again.created).toEqual({});
+    // Every row the import created is a draft (seed rows, if loaded, are ignored).
     const { rows } = await db().query(
-      `select count(*)::int as n from (
-         select status from public.sources union all select status from public.exams
-         union all select status from public.topics union all select status from public.eligibility_rules
-       ) x where status <> 'draft'`,
+      `select count(*)::int as n from public.audit_log a
+       cross join lateral (select private.content_row(a.entity_type, a.entity_id::uuid) ->> 'status' as status) r
+       where a.action = 'content.import' and r.status <> 'draft'`,
     );
     expect(rows[0].n).toBe(0);
   });

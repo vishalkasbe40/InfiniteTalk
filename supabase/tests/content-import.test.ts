@@ -142,9 +142,16 @@ describe('content import (owner only, drafts only)', () => {
       existing: {},
     });
     const statuses = await db().query(`
-      select status, created_by, approved_by from public.topics
-      union all select status, created_by, approved_by from public.eligibility_rules
-      union all select status, created_by, approved_by from public.sources`);
+      select status, created_by, approved_by, id from public.topics
+      union all select status, created_by, approved_by, id from public.eligibility_rules
+      union all select status, created_by, approved_by, id from public.sources`);
+    // Only rows this import created (the real-stack CI run also loads supabase/seed.sql).
+    const { rows: mine } = await db().query<{ entity_id: string }>(
+      "select entity_id from public.audit_log where action = 'content.import'",
+    );
+    const ids = new Set(mine.map((m) => m.entity_id));
+    statuses.rows = statuses.rows.filter((x) => ids.has(x.id));
+    expect(statuses.rows).toHaveLength(5);
     expect(statuses.rows.every((x) => x.status === 'draft' && x.created_by === null)).toBe(true);
     expect(statuses.rows.every((x) => x.approved_by === null)).toBe(true);
     const audit = await one<{ n: string; refs: string[] }>(
@@ -302,9 +309,15 @@ describe('content import (owner only, drafts only)', () => {
       ],
       '23514',
     );
-    expect(Number((await one<{ n: string }>('select count(*) as n from public.sources')).n)).toBe(
-      0,
-    );
+    expect(
+      Number(
+        (
+          await one<{ n: string }>(
+            "select count(*) as n from public.sources where url like 'https://example.gov.in/%'",
+          )
+        ).n,
+      ),
+    ).toBe(0);
   });
 
   it('cannot be called through the API by anyone', async () => {
@@ -325,10 +338,11 @@ describe('eligibility rules', () => {
     await actAsSuperuser(db());
     await importBundle(bundle());
     return one<Record<string, string>>(`
-      select (select id from public.sources where kind = 'official_notification') as notice,
-             (select id from public.exam_families) as family,
-             (select id from public.exams) as exam,
-             (select id from public.eligibility_rules) as rule`);
+      select (select id from public.sources where url = 'https://example.gov.in/notice.pdf') as notice,
+             (select id from public.exam_families where code = 'FICT') as family,
+             (select id from public.exams where code = 'FICT_CIVIL') as exam,
+             (select r.id from public.eligibility_rules r join public.exams e on e.id = r.exam_id
+              where e.code = 'FICT_CIVIL') as rule`);
   }
 
   const setStatus = (table: string, id: string, status: string) =>
@@ -371,12 +385,16 @@ describe('eligibility rules', () => {
 
   it('blocks retiring an exam while an eligibility rule below it is not retired', async () => {
     const ids = await imported();
+    const { rows: branch } = await db().query<{ t: string; id: string }>(
+      `select entity_type as t, entity_id as id from public.audit_log
+       where action = 'content.import' and entity_type in
+         ('topics', 'subjects', 'syllabus_versions', 'papers', 'exam_stages')`,
+    );
     const reviewer = await staff();
     await actAs(db(), reviewer, 'aal2');
     // Retire the stage branch bottom-up, leaving only the eligibility rule under the exam.
     for (const table of ['topics', 'subjects', 'syllabus_versions', 'papers', 'exam_stages']) {
-      const { rows } = await db().query<{ id: string }>(`select id from public.${table}`);
-      for (const r of rows) await setStatus(table, r.id, 'retired');
+      for (const r of branch.filter((b) => b.t === table)) await setStatus(table, r.id, 'retired');
     }
     await expectSqlError(
       db(),
