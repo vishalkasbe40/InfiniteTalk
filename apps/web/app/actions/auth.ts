@@ -27,11 +27,31 @@ const formObject = (fd: FormData) =>
 
 type EmailStatus = 'none' | 'unconfirmed' | 'confirmed';
 
+/**
+ * Server-log a failed step so the operator can diagnose it in the host's logs.
+ * Logs only the step name and the provider's error code/status: never the email or form data.
+ */
+function logFailure(step: string, err: unknown): void {
+  const e = (err ?? {}) as { code?: unknown; status?: unknown; name?: unknown; message?: unknown };
+  const pick = (v: unknown) => (typeof v === 'string' || typeof v === 'number' ? v : undefined);
+  const message =
+    typeof e.message === 'string' ? e.message.replace(/\S+@\S+/g, '[email]') : undefined;
+  console.error(`[auth] ${step} failed`, {
+    code: pick(e.code),
+    status: pick(e.status),
+    name: pick(e.name),
+    message: message?.slice(0, 200),
+  });
+}
+
 async function emailStatus(email: string): Promise<EmailStatus> {
   const { data, error } = await createAdminClient().rpc('svc_auth_email_status', {
     p_email: email,
   });
-  if (error) throw new Error('email status lookup failed');
+  if (error) {
+    logFailure('signUp.emailStatus', error);
+    throw new Error('email status lookup failed');
+  }
   return data as EmailStatus;
 }
 
@@ -55,7 +75,10 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
       .select('id, used_at')
       .eq('email', email)
       .maybeSingle();
-    if (invite.error) return { status: 'error', message: MESSAGES.unavailable };
+    if (invite.error) {
+      logFailure('signUp.inviteLookup', invite.error);
+      return { status: 'error', message: MESSAGES.unavailable };
+    }
     if (!invite.data) return sent;
 
     const status = await emailStatus(email);
@@ -66,6 +89,7 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
       if (invite.data.used_at) return sent;
       const created = await admin.auth.admin.createUser({ email, email_confirm: false });
       if (created.error && created.error.code !== 'email_exists') {
+        logFailure('signUp.createUser', created.error);
         return { status: 'error', message: MESSAGES.unavailable };
       }
       createdId = created.data.user?.id;
@@ -78,7 +102,10 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
       email,
       options: { emailRedirectTo: `${getEnv().APP_BASE_URL}/account/password` },
     });
-    if (resent.error) return { status: 'error', message: MESSAGES.emailFailed };
+    if (resent.error) {
+      logFailure('signUp.sendEmail', resent.error);
+      return { status: 'error', message: MESSAGES.emailFailed };
+    }
 
     if (!invite.data.used_at) {
       await admin
@@ -88,7 +115,8 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
         .is('used_at', null);
     }
     return sent;
-  } catch {
+  } catch (err) {
+    logFailure('signUp', err);
     return { status: 'error', message: MESSAGES.unavailable };
   }
 }
