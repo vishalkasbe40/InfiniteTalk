@@ -142,11 +142,12 @@ export async function sendMagicLink(_prev: FormState, fd: FormData): Promise<For
   const redirectTo = `${getEnv().APP_BASE_URL}/dashboard`;
   after(async () => {
     if ((await emailStatus(email)) !== 'confirmed') return;
-    await createAnonServerClient().auth.signInWithOtp({
+    const { error } = await createAnonServerClient().auth.signInWithOtp({
       email,
       // Never create an account from a log-in link (review 0001 #8).
       options: { shouldCreateUser: false, emailRedirectTo: redirectTo },
     });
+    if (error) logFailure('sendMagicLink', error);
   });
   return { status: 'sent', message: MESSAGES.magicLinkSent };
 }
@@ -157,7 +158,10 @@ export async function requestPasswordReset(_prev: FormState, fd: FormData): Prom
   const { email } = parsed.data;
   const redirectTo = `${getEnv().APP_BASE_URL}/account/password`;
   after(async () => {
-    await createAnonServerClient().auth.resetPasswordForEmail(email, { redirectTo });
+    const { error } = await createAnonServerClient().auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    if (error) logFailure('requestPasswordReset', error);
   });
   return { status: 'sent', message: MESSAGES.resetSent };
 }
