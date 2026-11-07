@@ -198,7 +198,7 @@ export const ENTITIES: Record<EntityKey, EntityDef> = {
         param: 'p_age_relaxations',
         label: 'Age relaxations (extra years)',
         type: 'relaxations',
-        help: 'One per line, as CATEGORY=years, e.g. OBC=3. Copy exactly from the notification.',
+        help: 'One per line, as CATEGORY=years, e.g. OBC=3. Copy exactly from the notification. Conditional rules (e.g. service + 3 years) go in “Other conditions”.',
       },
       {
         name: 'domicile_state',
@@ -378,8 +378,9 @@ export function parseRelaxations(raw: string): Record<string, number> | null {
     const m = /^([A-Za-z][A-Za-z0-9_]{1,31})\s*[=:]\s*(\d{1,2}(?:\.\d)?)$/.exec(t);
     if (!m) return null;
     const years = Number(m[2]);
-    if (years > 15) return null;
-    out[m[1]!.toUpperCase()] = years;
+    const category = m[1]!.toUpperCase();
+    if (years > 15 || category in out) return null;
+    out[category] = years;
   }
   return Object.keys(out).length > 20 ? null : out;
 }

@@ -39,6 +39,9 @@ export function validateBundle(bundle, fileName) {
       continue;
     }
     if (url.protocol !== 'https:') fail(`${label}: link must use https`);
+    if (url.username || url.password || url.port || url.href !== s.url) {
+      fail(`${label}: use a plain link (no login, port or unusual characters)`);
+    }
     if (!isOfficialHost(url.hostname))
       fail(`${label}: ${url.hostname} is not on the official-domain list`);
     if (!/^[0-9a-f]{64}$/.test(s?.document_sha256 ?? ''))

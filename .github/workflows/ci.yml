@@ -13,6 +13,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Content-agent pull requests (branches content/...) may only change bundle files (ADR 0005).
+  content-scope:
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'content/')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Only content/imports/*.json may change
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          bad=$(git diff --name-only "origin/$BASE...HEAD" | grep -vE '^content/imports/[a-z0-9-]+\.json$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Content pull requests may only change content/imports/*.json. Other files:"
+            echo "$bad"
+            exit 1
+          fi
+
   checks:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

@@ -14,7 +14,7 @@
 --      Management API). Not exposed to anon / authenticated / service_role, not in an API schema.
 --
 -- ROLLBACK (manual, local or staging only):
---   drop function if exists private.import_content_bundle(jsonb), private.import_track(text, uuid, boolean, text, jsonb),
+--   drop function if exists private.is_official_url(text), private.import_content_bundle(jsonb), private.import_track(text, uuid, boolean, text, jsonb),
 --     private.import_source_id(jsonb, text), public.api_content_save_eligibility(uuid, uuid, text, text,
 --     public.education_level, text, smallint, smallint, date, jsonb, text, text, date, date, uuid);
 --   drop table if exists public.eligibility_rules; drop function if exists private.valid_relaxations(jsonb);
@@ -266,6 +266,22 @@ $$;
 -- 3. Draft-only bundle import (content agent)
 -- ---------------------------------------------------------------------------
 
+/**
+ * Plain https link on an official host: *.gov.in, *.nic.in or a listed exam body. No userinfo, no
+ * port. Mirrors content/official-domains.json (review 0007 #3/#7); change both together.
+ */
+create function private.is_official_url(p_url text) returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select coalesce(
+    p_url ~ '^https://(([a-z0-9-]+\.)+(gov|nic)\.in|(www\.)?ibps\.in|sbi\.co\.in|bank\.sbi|rbi\.org\.in|opportunities\.rbi\.org\.in|(www\.)?nabard\.org|(www\.)?licindia\.in)(/[^\s]*)?$',
+    false);
+$$;
+
+revoke all on function private.is_official_url(text) from public;
+
 /** Counts created/existing rows per table; audits every created row with the bundle ref. */
 create function private.import_track(p_table text, p_id uuid, p_new boolean, p_ref text, p_counts jsonb)
 returns jsonb
@@ -331,11 +347,15 @@ begin
       raise exception 'source "%": only official notifications or syllabus documents can be imported', s ->> 'key'
         using errcode = '22023';
     end if;
-    if s ->> 'url' is null or s ->> 'url' !~ '^https://[^\s]+$' then
-      raise exception 'source "%": an https link is required', s ->> 'key' using errcode = '22023';
+    if not private.is_official_url(s ->> 'url') then
+      raise exception 'source "%": an https link on an official host is required', s ->> 'key' using errcode = '22023';
+    end if;
+    if coalesce(s ->> 'document_sha256', '') !~ '^[0-9a-f]{64}$' then
+      raise exception 'source "%": document_sha256 is required', s ->> 'key' using errcode = '22023';
     end if;
     select id into v_id from public.sources
-    where url = s ->> 'url' and document_sha256 is not distinct from (s ->> 'document_sha256') and status <> 'retired'
+    where url = s ->> 'url' and document_sha256 = s ->> 'document_sha256' and status <> 'retired'
+      and kind = (s ->> 'kind')::public.source_kind
     order by id limit 1;
     if v_id is null then
       insert into public.sources (kind, title, publisher, url, published_on, retrieved_on, licence_note, document_sha256)
@@ -394,6 +414,25 @@ begin
         if v_status = 'retired' then
           raise exception 'eligibility rule "%" is retired; use a new label', el ->> 'label' using errcode = '22023';
         end if;
+        -- Same label but different content (e.g. a corrigendum): never ignore it silently (review 0007 #2).
+        if v_id is not null and exists (
+          select 1 from public.eligibility_rules r where r.id = v_id and (
+            r.post_name is distinct from private.clean(el ->> 'post_name')
+            or r.min_education is distinct from (el ->> 'min_education')::public.education_level
+            or r.education_note is distinct from private.clean(el ->> 'education_note')
+            or r.age_min is distinct from (el ->> 'age_min')::smallint
+            or r.age_max is distinct from (el ->> 'age_max')::smallint
+            or r.age_reference_date is distinct from (el ->> 'age_reference_date')::date
+            or r.age_relaxations is distinct from coalesce(nullif(el -> 'age_relaxations', 'null'::jsonb), '{}'::jsonb)
+            or r.domicile_state is distinct from private.clean(el ->> 'domicile_state')
+            or r.other_conditions is distinct from private.clean(el ->> 'other_conditions')
+            or r.valid_from is distinct from (el ->> 'valid_from')::date
+            or r.valid_until is distinct from (el ->> 'valid_until')::date
+            or r.source_id is distinct from v_source)
+        ) then
+          raise exception 'eligibility rule "%" already exists with different details; use a new label (e.g. with the corrigendum number)',
+            el ->> 'label' using errcode = '22023';
+        end if;
         if v_id is null then
           insert into public.eligibility_rules (exam_id, label, post_name, min_education, education_note, age_min,
             age_max, age_reference_date, age_relaxations, domicile_state, other_conditions, valid_from, valid_until,
@@ -401,7 +440,7 @@ begin
           values (v_exam, private.clean(el ->> 'label'), private.clean(el ->> 'post_name'),
             (el ->> 'min_education')::public.education_level, private.clean(el ->> 'education_note'),
             (el ->> 'age_min')::smallint, (el ->> 'age_max')::smallint, (el ->> 'age_reference_date')::date,
-            coalesce(el -> 'age_relaxations', '{}'::jsonb), private.clean(el ->> 'domicile_state'),
+            coalesce(nullif(el -> 'age_relaxations', 'null'::jsonb), '{}'::jsonb), private.clean(el ->> 'domicile_state'),
             private.clean(el ->> 'other_conditions'), (el ->> 'valid_from')::date, (el ->> 'valid_until')::date,
             v_source)
           returning id into v_id;
@@ -441,6 +480,16 @@ begin
           if v_status = 'retired' then
             raise exception 'paper % is retired; use a new code', pa ->> 'code' using errcode = '22023';
           end if;
+          if v_paper is not null and exists (
+            select 1 from public.papers x where x.id = v_paper and (
+              (pa ->> 'duration_min' is not null and x.duration_min is distinct from (pa ->> 'duration_min')::smallint)
+              or (pa ->> 'total_marks' is not null and x.total_marks is distinct from (pa ->> 'total_marks')::numeric)
+              or (pa ->> 'negative_marking' is not null
+                  and x.negative_marking is distinct from (pa ->> 'negative_marking')::numeric))
+          ) then
+            raise exception 'paper % already exists with different exam facts; a reviewer must change it in Admin',
+              pa ->> 'code' using errcode = '22023';
+          end if;
           if v_paper is null then
             insert into public.papers (stage_id, code, name_en, name_mr, duration_min, total_marks, negative_marking, source_id)
             values (v_stage, upper(pa ->> 'code'), private.clean(pa ->> 'name_en'), private.clean(pa ->> 'name_mr'),
@@ -461,6 +510,15 @@ begin
             select id into v_sv from public.syllabus_versions
             where paper_id = v_paper and label = private.clean(sv ->> 'label') and status <> 'retired'
             order by id limit 1;
+            -- A changed document is a NEW syllabus version, never more topics under the old one.
+            if v_sv is not null and exists (
+              select 1 from public.syllabus_versions x where x.id = v_sv and (
+                x.source_id is distinct from v_source
+                or x.effective_from is distinct from (sv ->> 'effective_from')::date)
+            ) then
+              raise exception 'syllabus "%" already exists with a different source or date; use a new label',
+                sv ->> 'label' using errcode = '22023';
+            end if;
             if v_sv is null then
               insert into public.syllabus_versions (paper_id, label, effective_from, source_id)
               values (v_paper, private.clean(sv ->> 'label'), (sv ->> 'effective_from')::date, v_source)

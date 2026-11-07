@@ -41,9 +41,14 @@ exam-body hosts (plus package registries). It opens at most two pull requests pe
 **Scope (planned, not built here):**
 - Student eligibility profile in onboarding: highest education and stream, date of birth, domicile
   state; **optional** category, disability (PwBD) and ex-serviceman status, each with "why we ask" and
-  a "prefer not to say" option. Category and disability are sensitive personal data: optional, used
-  only for matching, never shown to teachers or other students, deletable, and flagged for counsel
-  review (R-items) before the beta.
+  a "prefer not to say" option. CLAUDE.md §3.6 still applies: each field must change which exams match,
+  or it is not asked. Category and disability are sensitive personal data:
+  - stored in a separate table with owner-only access (RLS), never shown to teachers, other students
+    or admins in normal screens;
+  - never sent to the AI tutor, AI providers, logs or analytics; used only by the eligibility matcher;
+  - deletable on their own at any time; counsel review before the beta.
+  Students remain **18+** (consent `age_18_plus`); exam rules with lower age limits don't change that.
+  Asking for birth year only, or an age band, is the default unless a rule needs the exact date.
 - Eligibility finder: lists exams whose **approved** rules the student appears to meet, always with
   the official notification link and "check the latest notification before applying". It shows
   "appears eligible" / "check details", never a guarantee.

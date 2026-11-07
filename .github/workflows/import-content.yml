@@ -17,6 +17,8 @@ concurrency:
 
 jobs:
   import:
+    # Only reviewed code on main may use the database credentials (review 0007 #1).
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     environment: supabase
     steps:

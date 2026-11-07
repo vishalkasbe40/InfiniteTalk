@@ -120,7 +120,7 @@ describe('eligibility rules', () => {
     expect(
       toRpcParams(ENTITIES.eligibility, { ...base, min_education: 'phd' }, null, exam).ok,
     ).toBe(false);
-    for (const bad of ['OBC', 'OBC=20', '3=OBC', 'OBC=three']) {
+    for (const bad of ['OBC', 'OBC=20', '3=OBC', 'OBC=three', 'OBC=3\nobc=5']) {
       expect(
         toRpcParams(ENTITIES.eligibility, { ...base, age_relaxations: bad }, null, exam).ok,
       ).toBe(false);

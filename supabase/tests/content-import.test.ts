@@ -29,7 +29,7 @@ function bundle(overrides: Record<string, unknown> = {}) {
         kind: 'official_notification',
         title: 'Fictional recruitment notice 2026',
         publisher: 'Fictional Commission',
-        url: 'https://example.org/notice.pdf',
+        url: 'https://example.gov.in/notice.pdf',
         published_on: '2026-01-10',
         retrieved_on: '2026-11-07',
         document_sha256: SHA_A,
@@ -38,7 +38,7 @@ function bundle(overrides: Record<string, unknown> = {}) {
         key: 'syllabus',
         kind: 'official_syllabus',
         title: 'Fictional syllabus 2026',
-        url: 'https://example.org/syllabus.pdf',
+        url: 'https://example.gov.in/syllabus.pdf',
         document_sha256: SHA_B,
       },
     ],
@@ -180,10 +180,12 @@ describe('content import (owner only, drafts only)', () => {
     await importBundle(bundle());
     const changed = bundle();
     changed.sources[1]!.document_sha256 = 'c'.repeat(64);
+    changed.families[0]!.exams[0]!.stages[0]!.papers[0]!.syllabus_versions[0]!.label =
+      'Syllabus 2026 (revised)';
     const r = await importBundle(changed);
-    expect(r.created).toEqual({ sources: 1 });
+    expect(r.created).toMatchObject({ sources: 1, syllabus_versions: 1 });
     const n = await one<{ n: string }>(
-      "select count(*) as n from public.sources where url = 'https://example.org/syllabus.pdf'",
+      "select count(*) as n from public.sources where url = 'https://example.gov.in/syllabus.pdf'",
     );
     expect(Number(n.n)).toBe(2);
   });
@@ -200,6 +202,38 @@ describe('content import (owner only, drafts only)', () => {
     expect(fam.name_en).toBe('Fictional Commission');
   });
 
+  it('refuses to silently ignore changed details under an existing label or code', async () => {
+    await actAsSuperuser(db());
+    await importBundle(bundle());
+    const sql = 'select private.import_content_bundle($1::jsonb)';
+    const changedAge = bundle();
+    changedAge.families[0]!.exams[0]!.eligibility[0]!.age_max = 43;
+    await expectSqlError(db(), sql, [JSON.stringify(changedAge)], '22023');
+    const changedMarks = bundle();
+    changedMarks.families[0]!.exams[0]!.stages[0]!.papers[0]!.total_marks = 250;
+    await expectSqlError(db(), sql, [JSON.stringify(changedMarks)], '22023');
+    // A new syllabus document under the old label must become a new version instead.
+    const newDoc = bundle();
+    newDoc.sources[1]!.document_sha256 = 'd'.repeat(64);
+    await expectSqlError(db(), sql, [JSON.stringify(newDoc)], '22023');
+    newDoc.families[0]!.exams[0]!.stages[0]!.papers[0]!.syllabus_versions[0]!.label =
+      'Syllabus 2027';
+    const r = await importBundle(newDoc);
+    expect(r.created).toMatchObject({ sources: 1, syllabus_versions: 1, subjects: 1, topics: 2 });
+  });
+
+  it('treats null relaxations as none', async () => {
+    await actAsSuperuser(db());
+    const b = bundle();
+    (b.families[0]!.exams[0]!.eligibility[0] as { age_relaxations: unknown }).age_relaxations =
+      null;
+    await importBundle(b);
+    const rule = await one<{ age_relaxations: unknown }>(
+      'select age_relaxations from public.eligibility_rules',
+    );
+    expect(rule.age_relaxations).toEqual({});
+  });
+
   it('rejects unofficial or insecure sources and uncited facts', async () => {
     await actAsSuperuser(db());
     const bad = (mutate: (b: ReturnType<typeof bundle>) => void) => {
@@ -213,6 +247,20 @@ describe('content import (owner only, drafts only)', () => {
       db(),
       sql,
       [bad((b) => (b.sources[0]!.url = 'http://example.org/x.pdf'))],
+      '22023',
+    );
+    for (const url of [
+      'https://blog.example.com/x.pdf',
+      'https://example.gov.in:8443/x.pdf',
+      'https://user@example.gov.in/x.pdf',
+      'https://evilgov.in/x.pdf',
+    ]) {
+      await expectSqlError(db(), sql, [bad((b) => (b.sources[0]!.url = url))], '22023');
+    }
+    await expectSqlError(
+      db(),
+      sql,
+      [bad((b) => delete (b.sources[0] as { document_sha256?: string }).document_sha256)],
       '22023',
     );
     await expectSqlError(
